@@ -28,14 +28,19 @@ def get_args():
 
 	parser.add_argument('--tau', type=float, default=0.95,
 						help='gae parameter (default: 0.95)')
+
 	parser.add_argument('--ppo-epoch', type=int, default=4,
 						help='Number of ppo epochs (default: 4)')
+
 	parser.add_argument('--ppo-batch-size', type=int, default=40,
 						help='Batch size in ppo')
+
 	parser.add_argument('--clip-param', type=float, default=0.2,
 						help='ppo clip parameter (default: 0.2)')
+
 	parser.add_argument('--use-gae', action='store_true', default=False,
 						help='use generalized advantage estimation')
+
 	parser.add_argument('--value-loss-coef', type=float, default=0.5,
 						help='value loss coefficient (default: 0.5)')
 
@@ -47,6 +52,19 @@ def get_args():
 
 	parser.add_argument('--max-grad-norm', type=float, default=0.5,
 						help='max norm of gradients (default: 0.5)')
+
+	parser.add_argument('--log-dir', default='log/new-exp/',
+						help='directory to save tensorboard logs (default: /log/new-exp)')
+	
+	parser.add_argument('--save-dir', default='trained_models/',
+						help='directory to trained models (default: trained_models/)')
+
+	parser.add_argument('--env-name', default='nmt-v0',
+						help='environment to train on (default: nmt-v0)')
+
+
+	parser.add_argument('--save-interval', type=int, default=1,
+						help='save interval, one save per n epochs (default: 1)')
 
 	args = parser.parse_args()
 	return args

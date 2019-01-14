@@ -17,10 +17,10 @@ from a2c_ppo_acktr.storage import RolloutStorage
 from arguments import get_args
 from utils import reshape_batch
 from tensorboardX import SummaryWriter
-writer = SummaryWriter('runs/exp-1')
 
 args = get_args()
 
+writer = SummaryWriter(args.log_dir)
 
 def make_env(env_id, n_missing_words):
 	def _thunk():
@@ -38,7 +38,7 @@ for i in range(1,args.max_missing_words):
 	training_scheme.extend([i]*args.n_epochs_per_word)
 
 
-envs = [make_env(env_id = 'nmt-v0',n_missing_words=training_scheme[0])
+envs = [make_env(env_id = args.env_name,n_missing_words=training_scheme[0])
 			for i in range(args.num_processes)]
 
 envs = SubprocVecEnv(envs)
@@ -60,23 +60,26 @@ sen_per_epoch = len_train_data//(args.num_steps*args.num_processes)
 
 rollouts = RolloutStorage(args.num_steps*(2*training_scheme[0]+1)+1, args.num_processes,
 						envs.observation_space.shape, envs.action_space)
-
+print('Started training')
 for epoch in range(args.n_epochs+1):
 
 	value_loss_epoch = 0.0
 	action_loss_epoch = 0.0
 	dist_entropy_epoch = 0.0
+	mean_reward_epoch = 0.0
 
-	print('epoch',epoch)
+	# print('epoch',epoch)
 
-	for _ in range(sen_per_epoch):	
+	for ite in range(sen_per_epoch):	
 
 		n_missing_words = training_scheme[epoch]
 		
-
+		rewards = []
+		tp = 0
+		totalp = 0
 		if (epoch%args.n_epochs_per_word == 0 and epoch!=0):
 
-			envs = [make_env(env_id = 'nmt-v0',n_missing_words=n_missing_words)
+			envs = [make_env(env_id = args.env_name,n_missing_words=n_missing_words)
 				for i in range(args.num_processes)]
 			envs = SubprocVecEnv(envs)
 			envs = VecPyTorch(envs,'cuda')
@@ -86,7 +89,7 @@ for epoch in range(args.n_epochs+1):
 
 
 		obs = []
-
+		
 		for step in range(args.num_steps):
 
 			ob = envs.reset()
@@ -104,6 +107,9 @@ for epoch in range(args.n_epochs+1):
 				if (n!=2*n_missing_words):
 					obs.append(ob)
 				rollouts.insert( action, action_log_prob, value, reward)
+			# print(reward)
+			rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
+			# print(infos[0],len(infos))
 
 		rollouts.insert_obs(reshape_batch(obs))
 
@@ -111,15 +117,30 @@ for epoch in range(args.n_epochs+1):
 
 		rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
 		value_loss, action_loss,dist_entropy = agent.update(rollouts)
+		writer.add_scalar('Running Value loss',value_loss,ite+epoch*sen_per_epoch)
+		writer.add_scalar('Running action loss',action_loss,ite+epoch*sen_per_epoch)
+		writer.add_scalar('Running Dist entropy',dist_entropy,ite+epoch*sen_per_epoch)
+		writer.add_scalar('Running mean reward ',np.mean(rewards),ite+epoch*sen_per_epoch)
+
 
 		value_loss_epoch+=value_loss
 		action_loss_epoch+=action_loss
 		dist_entropy_epoch+=dist_entropy
+		mean_reward_epoch+= np.mean(rewards)
 
 		rollouts.after_update()
 
-	writer.add_scalar('Value loss',value_loss_epoch/sen_per_epoch,epoch)
-	writer.add_scalar('Action loss',action_loss_epoch/sen_per_epoch,epoch)
-	writer.add_scalar('distribution entropy',dist_entropy_epoch/sen_per_epoch,epoch)
+	writer.add_scalar('Epoch Value loss',value_loss_epoch/sen_per_epoch,epoch)
+	writer.add_scalar('Epoch Action loss',action_loss_epoch/sen_per_epoch,epoch)
+	writer.add_scalar('Epoch distribution entropy',dist_entropy_epoch/sen_per_epoch,epoch)
+	writer.add_scalar('Epoch mean reward',mean_reward_epoch/sen_per_epoch,epoch)
+
+	writer.add_scalar('Learning rate',args.lr,epoch)
+
+	if (epoch%args.save_interval == 0):
+		save_model = actor_critic
+		torch.save(save_model, os.path.join(args.save_path, args.env_name + ".pt"))
+
+
 
 	

@@ -91,7 +91,7 @@ class NMTEnv(gym.Env):
 		self.target = None
 		self.action = spaces.Discrete(self.n_vocab)
 		self.observation = np.ones((2,self.max_len))
-
+		
 	def init_words(self,n_missing_words):
 		self.n_missing_words = n_missing_words
 
@@ -105,10 +105,11 @@ class NMTEnv(gym.Env):
 
 		self.take_action(action)
 
-		reward = self.get_reward(action)
+		reward,counts = self.get_reward(action)
 		ob = [self.source,self.previous]
 		episode_over = self.is_done(action)
-		return np.array(ob), reward, episode_over, {}
+		info = {'True prediction':counts[0],'Total':counts[1]}
+		return np.array(ob), reward, episode_over, info
 
 	def is_done(self,action):     
 		if action == self.source_lang.dict.eos():
@@ -116,6 +117,7 @@ class NMTEnv(gym.Env):
 		return False
 
 	def reset(self):
+
 		
 		training_pair = variables_from_pair(self.source_lang, self.target_lang,random.choice(train_data),'en','de')
 
@@ -124,6 +126,7 @@ class NMTEnv(gym.Env):
 
 		self.source = training_pair[0]
 		self.target = training_pair[1]
+		self.generation = []
 
 		if len(self.target)- 1<= self.n_missing_words:
 			self.previous = [self.source_lang.dict.eos()]
@@ -136,19 +139,38 @@ class NMTEnv(gym.Env):
 
 	def take_action(self,action):
 		self.previous.append(int(action))
+		self.generation.append(int(action))
 			
 
 	def get_reward(self,action):
 		if action != self.source_lang.dict.eos():
-			return 0
+			return 0,[0,0]
 		else:
+			
+			missing_target = self.target[-1*self.n_missing_words-1:]
+			
+			tp = 0
+			# fp = 0
+			total = len(self.generation)
+
+			for i in range(len(self.generation)):
+				if (i<len(missing_target)):
+					if missing_target[i] == self.generation[i]:
+						tp+=1
+				else:
+					if self.generation[i] == self.source_lang.dict.eos():
+						tp+=1
+
+
 			sen_t = []
 			sen_g = []
 
 			sen_t = self.target_lang.dict.string(torch.tensor(self.target))
 			sen_g = self.target_lang.dict.string(torch.tensor(self.previous))
 
-			return sentence_bleu(sen_t,sen_g)
+
+
+			return sentence_bleu(sen_t,sen_g),[tp,total]
 
 
 	@property
