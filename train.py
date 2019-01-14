@@ -6,7 +6,7 @@ from modified_subproc import SubprocVecEnv
 from utils import VecPyTorch
 import numpy as np
 import torch
-
+import time
 import sys
 sys.path.insert(0,'pytorch-a2c-ppo-acktr')
 
@@ -68,15 +68,16 @@ for epoch in range(args.n_epochs+1):
 	dist_entropy_epoch = 0.0
 	mean_reward_epoch = 0.0
 
-	# print('epoch',epoch)
+	truepred_epoch = 0.0
+	totalpred_epoch = 0.0
 
 	for ite in range(sen_per_epoch):	
 
 		n_missing_words = training_scheme[epoch]
 		
 		rewards = []
-		tp = 0
-		totalp = 0
+		truepred_iter = 0
+		totalpred_iter = 0
 		if (epoch%args.n_epochs_per_word == 0 and epoch!=0):
 
 			envs = [make_env(env_id = args.env_name,n_missing_words=n_missing_words)
@@ -102,14 +103,24 @@ for epoch in range(args.n_epochs+1):
 					value, action, action_log_prob = actor_critic.act(ob)
 
 				if (n == 2*n_missing_words):
+					true_action = action.cpu().numpy()
+					# print(true_action.shape)
+					true_eos_count = np.count_nonzero(true_action == 2)
 					action = (torch.ones([args.num_processes,1])*2).cuda()
 				ob, reward, done, infos = envs.step(action)
 				if (n!=2*n_missing_words):
 					obs.append(ob)
 				rollouts.insert( action, action_log_prob, value, reward)
-			# print(reward)
+
 			rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
-			# print(infos[0],len(infos))
+			tp = 0
+			totalp = 0
+			for i in range(len(infos)):
+				tp+=infos[i]['True prediction']
+				totalp+=infos[i]['Total']
+			tp = tp - args.num_processes + true_eos_count
+			truepred_iter+=tp
+			totalpred_iter+=totalp
 
 		rollouts.insert_obs(reshape_batch(obs))
 
@@ -121,12 +132,16 @@ for epoch in range(args.n_epochs+1):
 		writer.add_scalar('Running action loss',action_loss,ite+epoch*sen_per_epoch)
 		writer.add_scalar('Running Dist entropy',dist_entropy,ite+epoch*sen_per_epoch)
 		writer.add_scalar('Running mean reward ',np.mean(rewards),ite+epoch*sen_per_epoch)
+		writer.add_scalar('Percentage of true predictions in top1',truepred_iter*100/totalpred_iter,ite+epoch*sen_per_epoch)
+
 
 
 		value_loss_epoch+=value_loss
 		action_loss_epoch+=action_loss
 		dist_entropy_epoch+=dist_entropy
 		mean_reward_epoch+= np.mean(rewards)
+		truepred_epoch+=truepred_iter
+		totalpred_epoch+=totalpred_iter
 
 		rollouts.after_update()
 
@@ -134,6 +149,8 @@ for epoch in range(args.n_epochs+1):
 	writer.add_scalar('Epoch Action loss',action_loss_epoch/sen_per_epoch,epoch)
 	writer.add_scalar('Epoch distribution entropy',dist_entropy_epoch/sen_per_epoch,epoch)
 	writer.add_scalar('Epoch mean reward',mean_reward_epoch/sen_per_epoch,epoch)
+	writer.add_scalar('Per of true predictions in top1 in epoch',truepred_epoch*100/totalpred_epoch,ite+epoch*sen_per_epoch)
+
 
 	writer.add_scalar('Learning rate',args.lr,epoch)
 

@@ -1,5 +1,4 @@
 baselines~=0.1.5
-fairseq~=0.6.0
 gym~=0.10.9
 matplotlib~=3.0.2
 pybullet
