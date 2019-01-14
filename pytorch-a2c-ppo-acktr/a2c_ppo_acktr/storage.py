@@ -12,11 +12,12 @@ class RolloutStorage(object):
 		self.obs_s = []
 		self.obs_t = []
 		self.num_processes = num_processes
+		self.num_steps = num_steps
 		# self.recurrent_hidden_states = torch.zeros(num_steps + 1, num_processes, recurrent_hidden_state_size)
-		print(self.num_steps,self.num_processes,self.num_processes*self.num_steps)
 		self.rewards = torch.zeros(num_steps*num_processes,1)
 		self.value_preds = torch.zeros(num_steps*num_processes+1,1)
-		self.returns = torch.zeros(num_steps*num_processes+1,1)
+		# self.returns = torch.zeros(num_steps*num_processes+1,1)
+		self.returns = np.zeros((num_steps*num_processes+1,1))
 		self.action_log_probs = torch.zeros(num_steps*num_processes,1)
 		if action_space.__class__.__name__ == 'Discrete':
 			action_shape = 1
@@ -32,7 +33,7 @@ class RolloutStorage(object):
 		# self.action_log_probs = torch.zeros(num_steps, num_processes, 1)
 		# self.actions = torch.zeros(num_steps, num_processes, action_shape)
 
-		self.num_steps = num_steps
+		
 		self.step = 0
 
 	def to(self, device):
@@ -50,6 +51,7 @@ class RolloutStorage(object):
 		# self.obs_s = torch.cat(obs[0])
 		# self.obs_t = torch.cat(obs[1])
 		# self.recurrent_hidden_states[self.step + 1].copy_(recurrent_hidden_states)
+
 		self.actions[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(actions)
 		self.action_log_probs[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(action_log_probs)
 		self.value_preds[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(value_preds)
@@ -58,6 +60,7 @@ class RolloutStorage(object):
 		self.step = (self.step + 1) % self.num_steps
 
 	def insert_obs(self,obs):
+		self.returns = np.zeros((self.num_steps*self.num_processes+1,1))
 		self.obs_s = torch.cat(obs[0])
 		self.obs_t = torch.cat(obs[1])
 
@@ -76,46 +79,25 @@ class RolloutStorage(object):
 				self.returns[step] = gae + self.value_preds[step]
 		else:
 			# print (next_value.shape)
-			self.returns[-self.num_processes:] = next_value
+			# self.returns[-self.num_processes:] = next_value
+			# for step in reversed(range(self.rewards.size(0))):
+			# 	self.returns[step] = self.returns[step + 1] * \
+			# 		gamma * self.masks[step + 1] + self.rewards[step]
+
+			self.returns[-self.num_processes:] = next_value.data.cpu().numpy()
 			for step in reversed(range(self.rewards.size(0))):
 				self.returns[step] = self.returns[step + 1] * \
-					gamma * self.masks[step + 1] + self.rewards[step]
-
-
+					gamma * self.masks[step + 1].data.cpu().numpy() + self.rewards[step].data.cpu().numpy()
+			self.returns = torch.tensor(self.returns).float()			
 	def feed_forward_generator(self, advantages, batch_size):
 		self.obs_s = self.obs_s
 		self.obs_t = self.obs_t
 
-		print(self.obs_s.shape)
-		print(self.rewards.shape)
-
-
-
-		# num_steps, num_processes = self.rewards.size()[0:2]
-		# batch_size = num_processes * (num_steps-1)
-		# assert batch_size >= num_mini_batch, (
-		# 	"PPO requires the number of processes ({}) "
-		# 	"* number of steps ({}) = {} "
-		# 	"to be greater than or equal to the number of PPO mini batches ({})."
-		# 	"".format(num_processes, num_steps, num_processes * num_steps, num_mini_batch))
-		# mini_batch_size = batch_size // num_mini_batch
-		# sampler = BatchSampler(SubsetRandomSampler(range(batch_size)), mini_batch_size, drop_last=False)
 		total = self.obs_s.shape[0]
 		arr = np.arange(total)
 		np.random.shuffle(arr)
 		indices = arr[:batch_size]
 
-		# for indices in sampler:
-		#     obs_batch_s = self.obs_s[indices]
-		#     obs_batch_t = self.obs_t[indices]
-			
-		#     actions_batch = self.actions.view(-1, self.actions.size(-1))[indices]
-		#     value_preds_batch = self.value_preds[:-1].view(-1, 1)[indices]
-		#     return_batch = self.returns[:-1].view(-1, 1)[indices]
-		#     old_action_log_probs_batch = self.action_log_probs.view(-1, 1)[indices]
-		#     adv_targ = advantages.view(-1, 1)[indices]
-			# yield (obs_batch_s.cuda(),obs_batch_t.cuda()), actions_batch, \
-			#     value_preds_batch, return_batch,  old_action_log_probs_batch, adv_targ
 
 		#Throwing rest of the data (CR)
 
@@ -124,8 +106,8 @@ class RolloutStorage(object):
 
 		actions_batch = self.actions[indices]
 		value_preds_batch = self.value_preds[indices]
-		return_batch = self.returns[indces]
-		old_action_log_probs_batch = self.action_log_probs[indces]
+		return_batch = self.returns[indices]
+		old_action_log_probs_batch = self.action_log_probs[indices]
 		adv_targ = advantages[indices]
 		
 		actions_batch = self.actions.view(-1, self.actions.size(-1))[indices]

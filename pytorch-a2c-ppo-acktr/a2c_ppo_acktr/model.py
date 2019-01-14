@@ -69,17 +69,13 @@ class Policy(nn.Module):
 
 
 		dist = torch.distributions.Categorical(actor_features)
-		# print(dist)
 
 		if deterministic:
 			action = dist.mode()
 		else:
 			action = dist.sample()
-		# for f in self.dist.parameters():
-		# 	print('data is',f.data)
-		# 	print('grad is',f.grad)
+
 		action_log_probs = dist.log_probs(action)
-		# print('action probs are',dist.probs)
 
 		return value, action, action_log_probs
 
@@ -303,19 +299,27 @@ class AttnBase(NNBase):
 
 		dec_hidden,dec_out = self.decoder(t,enc_out)
 
-		outs = torch.ones([dec_out.shape[0],dec_out.shape[-1]]).to(device)
-		hidden = torch.ones([dec_hidden.shape[0],dec_hidden.shape[-1]]).to(device)
+		# out = torch.ones([dec_out.shape[0],dec_out.shape[-1]]).to(device)
+		# hidd = torch.ones([dec_hidden.shape[0],dec_hidden.shape[-1]]).to(device)
+
+		# print()
 		
+		outs = np.ones((dec_out.shape[0],dec_out.shape[-1]))
+		hidden = np.ones((dec_hidden.shape[0],dec_hidden.shape[-1]))
+
+
 		for i in range(t.shape[0]):
 			l = (t[i] == 0).nonzero()
 			if l.shape[0] == 0:
 				l = -1
 			else:
 				l = l[0]
-			outs[i] = dec_out[i][l]
-			hidden[i] = dec_hidden[i][l]
+			outs[i] = dec_out.data[i][l].data.cpu().numpy()
+			hidden[i] = dec_hidden.data[i][l].data.cpu().numpy()
 
-		m = torch.nn.Softmax()
+		outs = torch.tensor(outs).float().cuda()
+		hidden = torch.tensor(hidden).float().cuda()
+		m = torch.nn.Softmax(dim = -1)
 		sm = m(outs)
 
 		# if self.is_recurrent:

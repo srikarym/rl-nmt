@@ -57,11 +57,9 @@ class PPO():
 				
 			value_preds_batch = value_preds_batch.cuda()
 			return_batch = return_batch.cuda()
-			# masks_batch = masks_batch.cuda()
 			old_action_log_probs_batch = old_action_log_probs_batch.cuda()
 			adv_targ = adv_targ.cuda()
 
-			# print(obs_batch[0].shape)
 			
 
 			values, action_log_probs, dist_entropy = self.actor_critic.evaluate_actions(
@@ -83,18 +81,25 @@ class PPO():
 
 			self.optimizer.zero_grad()
 			
+			(value_loss * self.value_loss_coef + action_loss -
+			 dist_entropy * self.entropy_coef).backward()
 
-			(value_loss * self.value_loss_coef + action_loss).backward
+			# (value_loss * self.value_loss_coef + action_loss).backward()
 			nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
 									 self.max_grad_norm)
 			self.optimizer.step()
 
 			value_loss_epoch += value_loss.item()
 			action_loss_epoch += action_loss.item()
+			dist_entropy_epoch += dist_entropy.item()
 
-		num_updates = self.ppo_epoch * self.num_mini_batch
+
+		num_updates = self.ppo_epoch * self.batch_size
 
 		value_loss_epoch /= num_updates
 		action_loss_epoch /= num_updates
+		dist_entropy_epoch /= num_updates
 
-		return value_loss_epoch, action_loss_epoch
+
+
+		return value_loss_epoch, action_loss_epoch,dist_entropy_epoch
