@@ -11,10 +11,12 @@ class RolloutStorage(object):
 		# self.obs = torch.zeros(num_steps + 1, num_processes, *obs_shape)
 		self.obs_s = []
 		self.obs_t = []
+		self.num_processes = num_processes
 		# self.recurrent_hidden_states = torch.zeros(num_steps + 1, num_processes, recurrent_hidden_state_size)
+		print(self.num_steps,self.num_processes,self.num_processes*self.num_steps)
 		self.rewards = torch.zeros(num_steps*num_processes,1)
-		self.value_preds = torch.zeros(num_steps*num_processes,1)
-		self.returns = torch.zeros(num_steps*num_processes,1)
+		self.value_preds = torch.zeros(num_steps*num_processes+1,1)
+		self.returns = torch.zeros(num_steps*num_processes+1,1)
 		self.action_log_probs = torch.zeros(num_steps*num_processes,1)
 		if action_space.__class__.__name__ == 'Discrete':
 			action_shape = 1
@@ -48,10 +50,10 @@ class RolloutStorage(object):
 		# self.obs_s = torch.cat(obs[0])
 		# self.obs_t = torch.cat(obs[1])
 		# self.recurrent_hidden_states[self.step + 1].copy_(recurrent_hidden_states)
-		self.actions[self.step].copy_(actions)
-		self.action_log_probs[self.step].copy_(action_log_probs)
-		self.value_preds[self.step].copy_(value_preds)
-		self.rewards[self.step].copy_(rewards)
+		self.actions[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(actions)
+		self.action_log_probs[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(action_log_probs)
+		self.value_preds[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(value_preds)
+		self.rewards[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(rewards)
 		# self.masks[self.step + 1].copy_(masks)
 		self.step = (self.step + 1) % self.num_steps
 
@@ -73,7 +75,8 @@ class RolloutStorage(object):
 				gae = delta + gamma * tau * self.masks[step + 1] * gae
 				self.returns[step] = gae + self.value_preds[step]
 		else:
-			self.returns[-1] = next_value
+			# print (next_value.shape)
+			self.returns[-self.num_processes:] = next_value
 			for step in reversed(range(self.rewards.size(0))):
 				self.returns[step] = self.returns[step + 1] * \
 					gamma * self.masks[step + 1] + self.rewards[step]
@@ -84,7 +87,7 @@ class RolloutStorage(object):
 		self.obs_t = self.obs_t
 
 		print(self.obs_s.shape)
-		print(self.value_preds.shape)
+		print(self.rewards.shape)
 
 
 
@@ -97,7 +100,7 @@ class RolloutStorage(object):
 		# 	"".format(num_processes, num_steps, num_processes * num_steps, num_mini_batch))
 		# mini_batch_size = batch_size // num_mini_batch
 		# sampler = BatchSampler(SubsetRandomSampler(range(batch_size)), mini_batch_size, drop_last=False)
-		total = obs_s.shape[0]
+		total = self.obs_s.shape[0]
 		arr = np.arange(total)
 		np.random.shuffle(arr)
 		indices = arr[:batch_size]

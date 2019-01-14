@@ -33,12 +33,10 @@ def make_env(env_id, n_missing_words):
 
     return _thunk
 
-
-
 training_scheme = []
 
 
-for i in range(args.max_missing_words):
+for i in range(1,args.max_missing_words):
     training_scheme.extend([i]*args.n_epochs_per_word)
 
 
@@ -62,7 +60,7 @@ agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, 30,
 len_train_data = len(envs.dummyenv.data)
 sen_per_epoch = len_train_data//(args.num_steps*args.num_processes)
 
-rollouts = RolloutStorage(args.num_steps*2*training_scheme[0]+2, args.num_processes,
+rollouts = RolloutStorage(args.num_steps*2*(training_scheme[0]+1)+1, args.num_processes,
                         envs.observation_space.shape, envs.action_space)
 
 for epoch in range(args.n_epochs+1):
@@ -82,7 +80,6 @@ for epoch in range(args.n_epochs+1):
 
 
     obs = []
-    rewards = []
 
     for step in range(args.num_steps):
 
