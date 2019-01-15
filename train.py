@@ -156,7 +156,7 @@ for epoch in range(args.n_epochs+1):
 
 	if (epoch%args.save_interval == 0):
 		save_model = actor_critic
-		torch.save(save_model, os.path.join(args.save_path, args.env_name + ".pt"))
+		torch.save(save_model, os.path.join(args.save_dir, args.env_name +"_epoch"+str(epoch)+ ".pt"))
 
 
 
