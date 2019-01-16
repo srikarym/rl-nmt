@@ -167,12 +167,27 @@ class NMTEnvRed(gym.Env):
 
 			# sen_t = self.target_lang.dict.string(torch.tensor(self.target))
 			# sen_g = self.target_lang.dict.string(torch.tensor(self.previous))
+
 			sen_t = self.target_lang.dict.string(torch.tensor(missing_target))
 			sen_g = self.target_lang.dict.string(torch.tensor(self.generation))
 
 
+			if (self.n_missing_words == 1):
+				if (self.target[:-2] in self.generation):
+					reward = 100
+				else:
+					reward = 0
 
-			return sentence_bleu(sen_t,sen_g),[tp,total]
+			elif (self.n_missing_words == 2):
+				common = len(list(set(target[-3:-1]) & self.generation))
+				reward = 50*common
+			elif(self.n_missing_words == 3):
+				common = len(list(set(target[-4:-1]) & self.generation))
+				reward = 33.3*common
+			else:
+				reward = sentence_bleu(sen_t,sen_g)
+
+			return reward,[tp,total]
 
 
 	@property

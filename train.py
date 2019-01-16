@@ -11,7 +11,6 @@ import sys
 sys.path.insert(0,'pytorch-a2c-ppo-acktr')
 
 from a2c_ppo_acktr import algo
-# from a2c_ppo_acktr.arguments import get_args
 from a2c_ppo_acktr.model import Policy
 from a2c_ppo_acktr.storage import RolloutStorage
 from arguments import get_args
@@ -68,8 +67,6 @@ for epoch in range(args.n_epochs+1):
 	dist_entropy_epoch = 0.0
 	mean_reward_epoch = 0.0
 
-	truepred_epoch = 0.0
-	totalpred_epoch = 0.0
 
 	for ite in range(sen_per_epoch):	
 
@@ -91,6 +88,8 @@ for epoch in range(args.n_epochs+1):
 
 		obs = []
 		
+
+
 		for step in range(args.num_steps):
 
 			ob = envs.reset()
@@ -104,7 +103,6 @@ for epoch in range(args.n_epochs+1):
 
 				if (n == 2*n_missing_words):
 					true_action = action.cpu().numpy()
-					# print(true_action.shape)
 					true_eos_count = np.count_nonzero(true_action == 2)
 					action = (torch.ones([args.num_processes,1])*2).cuda()
 				ob, reward, done, infos = envs.step(action)
@@ -113,6 +111,7 @@ for epoch in range(args.n_epochs+1):
 				rollouts.insert( action, action_log_prob, value, reward)
 
 			rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
+			# print(np.mean(rewards))
 			tp = 0
 			totalp = 0
 			for i in range(len(infos)):
@@ -121,6 +120,9 @@ for epoch in range(args.n_epochs+1):
 			tp = tp - args.num_processes + true_eos_count
 			truepred_iter+=tp
 			totalpred_iter+=totalp
+
+			if (truepred_iter<0):
+				truepred_iter = 0
 
 		rollouts.insert_obs(reshape_batch(obs))
 
@@ -135,13 +137,10 @@ for epoch in range(args.n_epochs+1):
 		writer.add_scalar('Percentage of true predictions in top1',truepred_iter*100/totalpred_iter,ite+epoch*sen_per_epoch)
 
 
-
 		value_loss_epoch+=value_loss
 		action_loss_epoch+=action_loss
 		dist_entropy_epoch+=dist_entropy
 		mean_reward_epoch+= np.mean(rewards)
-		truepred_epoch+=truepred_iter
-		totalpred_epoch+=totalpred_iter
 
 		rollouts.after_update()
 
@@ -149,12 +148,15 @@ for epoch in range(args.n_epochs+1):
 	writer.add_scalar('Epoch Action loss',action_loss_epoch/sen_per_epoch,epoch)
 	writer.add_scalar('Epoch distribution entropy',dist_entropy_epoch/sen_per_epoch,epoch)
 	writer.add_scalar('Epoch mean reward',mean_reward_epoch/sen_per_epoch,epoch)
-	writer.add_scalar('Per of true predictions in top1 in epoch',truepred_epoch*100/totalpred_epoch,ite+epoch*sen_per_epoch)
 
 
 	writer.add_scalar('Learning rate',args.lr,epoch)
 
 	if (epoch%args.save_interval == 0):
+		if not os.path.exists(os.path.join(args.save_dir, args.env_name)):
+			os.makedirs(os.path.join(args.save_dir, args.env_name))
+
+
 		save_model = actor_critic
 		torch.save(save_model, os.path.join(args.save_dir, args.env_name +"_epoch"+str(epoch)+ ".pt"))
 
