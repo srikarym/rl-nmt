@@ -15,8 +15,8 @@ def reshape_batch(obs):
     bigt = []
     for pair in obs:
         s,t = pair
-        news = torch.zeros([s.shape[0],max_len])
-        newt = torch.zeros([t.shape[0],max_len])
+        news = torch.ones([s.shape[0],max_len])
+        newt = torch.ones([t.shape[0],max_len])
         news[:,:s.shape[1]] = s
         newt[:,:t.shape[1]] = t
         bigs.append(news)
@@ -29,6 +29,7 @@ class VecPyTorch(VecEnvWrapper):
 		super(VecPyTorch, self).__init__(venv)
 		self.device = device
 		self.dummyenv = gym.make('nmt-v0')
+		self.pad_val = self.dummyenv.task.source_dictionary.pad()
 		# TODO: Fix data types
 
 	def pad(self,obs):
@@ -38,9 +39,9 @@ class VecPyTorch(VecEnvWrapper):
 	    source = sorted(source,key = len,reverse=True)
 	    target = sorted(target,key = len,reverse=True)
 	    m = max(len(source[0]),len(target[0]))
-	    sp = nn.utils.rnn.pad_sequence([torch.ones([m])] + [torch.tensor(s) for s in source] ,batch_first=True)
+	    sp = nn.utils.rnn.pad_sequence([torch.ones([m])] + [torch.tensor(s) for s in source] ,batch_first=True,padding_value=self.pad_val)
 
-	    tp = nn.utils.rnn.pad_sequence([torch.ones([m])] + [torch.tensor(s) for s in target] ,batch_first=True)
+	    tp = nn.utils.rnn.pad_sequence([torch.ones([m])] + [torch.tensor(s) for s in target] ,batch_first=True,padding_value=self.pad_val)
 	    return (sp[1:], tp[1:])
 	def reset(self):
 		

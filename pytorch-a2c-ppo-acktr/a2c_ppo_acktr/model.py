@@ -277,8 +277,8 @@ class AttnBase(NNBase):
 		self.num_inputs = num_inputs
 		self.dummyenv = dummy_env
 
-		self.encoder = fairseq.models.lstm.LSTMEncoder(self.dummyenv.source_lang.dict,left_pad=False ,dropout_in=0.0, dropout_out=0.0).to(device)
-		self.decoder = lstm.LSTMDecoder(self.dummyenv.target_lang.dict,dropout_in=0.0, dropout_out=0.0).to(device)
+		self.encoder = fairseq.models.lstm.LSTMEncoder(self.dummyenv.task.source_dictionary,left_pad=False ,dropout_in=0.0, dropout_out=0.0,padding_value=1.0).to(device)
+		self.decoder = lstm.LSTMDecoder(self.dummyenv.task.target_dictionary,dropout_in=0.0, dropout_out=0.0).to(device)
 		
 		init_ = lambda m: init(m,
 			nn.init.orthogonal_,
@@ -286,6 +286,7 @@ class AttnBase(NNBase):
 
 		
 		self.critic_linear = init_(nn.Linear(512, 1)).to(device)
+		self.pad_value = self.dummyenv.task.source_dictionary.pad()
 
 		self.train()
 
@@ -309,7 +310,7 @@ class AttnBase(NNBase):
 
 
 		for i in range(t.shape[0]):
-			l = (t[i] == 0).nonzero()
+			l = (t[i] == self.pad_value).nonzero()
 			if l.shape[0] == 0:
 				l = -1
 			else:
