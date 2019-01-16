@@ -54,7 +54,7 @@ agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_s
 					   max_grad_norm=args.max_grad_norm)
 
 
-len_train_data = len(envs.dummyenv.data)
+len_train_data = len(envs.dummyenv.train_data)
 sen_per_epoch = len_train_data//(args.num_steps*args.num_processes)
 
 rollouts = RolloutStorage(args.num_steps*(2*training_scheme[0]+1)+1, args.num_processes,

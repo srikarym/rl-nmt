@@ -59,7 +59,7 @@ def get_args():
 	parser.add_argument('--save-dir', default='trained_models/',
 						help='directory to trained models (default: trained_models/)')
 
-	parser.add_argument('--env-name', default='nmt_redbleu-v0',
+	parser.add_argument('--env-name', default='nmt-v0',
 						help='environment to train on (default: nmt_redbleu-v0)')
 
 
