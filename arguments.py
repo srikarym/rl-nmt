@@ -60,10 +60,6 @@ def get_args():
 						help='directory to trained models (default: trained_models/)')
 
 	parser.add_argument('--env-name', default='nmt-v0',
-<<<<<<< HEAD
-=======
-
->>>>>>> 9d48e121ab94d692d1b25b7fe6ce109d9892a337
 						help='environment to train on (default: nmt-v0)')
 
 

@@ -70,6 +70,7 @@ for epoch in range(args.n_epochs+1):
 	truepred_iter = 0
 	totalpred_iter = 0
 	for ite in range(sen_per_epoch):	
+		start = time.time()
 
 		n_missing_words = training_scheme[epoch]
 		
@@ -129,13 +130,14 @@ for epoch in range(args.n_epochs+1):
 		next_value = actor_critic.get_value(ob)
 
 		rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
+		end = time.time()
 		value_loss, action_loss,dist_entropy = agent.update(rollouts)
 		writer.add_scalar('Running Value loss',value_loss,ite+epoch*sen_per_epoch)
 		writer.add_scalar('Running action loss',action_loss,ite+epoch*sen_per_epoch)
 		writer.add_scalar('Running Dist entropy',dist_entropy,ite+epoch*sen_per_epoch)
 		writer.add_scalar('Running mean reward ',np.mean(rewards),ite+epoch*sen_per_epoch)
 		writer.add_scalar('Percentage of true predictions in top1',truepred_iter*100/totalpred_iter,ite+epoch*sen_per_epoch)
-
+		writer.add_scalar('Steps per sec',args.num_steps*args.num_processes*(2*n_missing_words)/(end-start),ite+epoch*sen_per_epoch)
 
 		value_loss_epoch+=value_loss
 		action_loss_epoch+=action_loss
