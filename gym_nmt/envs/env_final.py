@@ -117,7 +117,7 @@ class NMTEnv(gym.Env):
 			tp = 0
 			total = len(self.generation)
 
-			for i in range(len(missing_target)):
+			for i in range(min(len(missing_target),len(self.generation))):
 				if missing_target[i] == self.generation[i]:
 					tp+=1
 

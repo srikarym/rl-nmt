@@ -64,9 +64,6 @@ def get_args():
 						help='environment to train on (default: nmt-v0)')
 
 
-
-
-
 	parser.add_argument('--save-interval', type=int, default=1,
 						help='save interval, one save per n epochs (default: 1)')
 
