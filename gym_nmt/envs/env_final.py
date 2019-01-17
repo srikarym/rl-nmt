@@ -161,34 +161,7 @@ class NMTEnv(gym.Env):
 				else:
 					tp = 0
 					reward = 0
-			for i in range(len(self.generation)):
-				if (i<len(missing_target)):
-					if missing_target[i] == self.generation[i]:
-						tp+=1
-				else:
-					if self.generation[i] == self.task.target_dictionary.eos():
-						tp+=1
 
-
-
-			sen_t = self.task.tgt_dict.string(torch.tensor(missing_target),bpe_symbol='@@ ')
-			sen_g = self.task.tgt_dict.string(torch.tensor(self.generation),bpe_symbol='@@ ')
-
-			else:
-				reward = sentence_bleu(sen_t,sen_g)
-
-			if (self.n_missing_words == 1):
-				if (self.target[:-2] in self.generation):
-					reward = 100
-				else:
-					reward = 0
-
-			elif (self.n_missing_words == 2):
-				common = len(list(set(target[-3:-1]) & self.generation))
-				reward = 50*common
-			elif(self.n_missing_words == 3):
-				common = len(list(set(target[-4:-1]) & self.generation))
-				reward = 33.3*common
 			else:
 				reward = sentence_bleu(sen_t,sen_g)
 
