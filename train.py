@@ -67,14 +67,14 @@ for epoch in range(args.n_epochs+1):
 	dist_entropy_epoch = 0.0
 	mean_reward_epoch = 0.0
 
-
+	truepred_iter = 0
+	totalpred_iter = 0
 	for ite in range(sen_per_epoch):	
 
 		n_missing_words = training_scheme[epoch]
 		
 		rewards = []
-		truepred_iter = 0
-		totalpred_iter = 0
+		
 		if (epoch%args.n_epochs_per_word == 0 and epoch!=0):
 
 			envs = [make_env(env_id = args.env_name,n_missing_words=n_missing_words)
@@ -103,8 +103,8 @@ for epoch in range(args.n_epochs+1):
 
 				if (n == 2*n_missing_words):
 					true_action = action.cpu().numpy()
-					true_eos_count = np.count_nonzero(true_action == 2)
-					action = (torch.ones([args.num_processes,1])*2).cuda()
+					true_eos_count = np.count_nonzero(true_action == envs.dummyenv.task.target_dictionary.eos())
+					action = (torch.ones([args.num_processes,1])*envs.dummyenv.task.target_dictionary.eos()).cuda()
 				ob, reward, done, infos = envs.step(action)
 				if (n!=2*n_missing_words):
 					obs.append(ob)
@@ -121,8 +121,8 @@ for epoch in range(args.n_epochs+1):
 			truepred_iter+=tp
 			totalpred_iter+=totalp
 
-			if (truepred_iter<0):
-				truepred_iter = 0
+			# if (truepred_iter<0):
+			# 	truepred_iter = 0
 
 		rollouts.insert_obs(reshape_batch(obs))
 
