@@ -60,11 +60,11 @@ def get_args():
 						help='directory to trained models (default: trained_models/)')
 
 	parser.add_argument('--env-name', default='nmt-v0',
-<<<<<<< HEAD
+
 						help='environment to train on (default: nmt-v0)')
-=======
-						help='environment to train on (default: nmt_redbleu-v0)')
->>>>>>> f644552fe8fbbac036814853311ba34e5eaee947
+
+
+
 
 
 	parser.add_argument('--save-interval', type=int, default=1,
