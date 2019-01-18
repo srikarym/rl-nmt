@@ -11,7 +11,7 @@ import random
 import fairseq
 from fairseq import tasks
 import itertools
-
+from copy import deepcopy
 class AttrDict(dict):
 	def __init__(self, *args, **kwargs):
 		super(AttrDict, self).__init__(*args, **kwargs)
@@ -58,6 +58,7 @@ class NMTEnv(gym.Env):
 		self.target = None
 		self.action = spaces.Discrete(self.n_vocab)
 		self.observation = np.ones((2,self.max_len))
+		self.missing_target = None
 		
 	def init_words(self,n_missing_words):
 		self.n_missing_words = n_missing_words
@@ -73,10 +74,15 @@ class NMTEnv(gym.Env):
 		self.take_action(action)
 
 		reward,counts = self.get_reward(action)
+
 		ob = [self.source,self.previous]
 		episode_over = self.is_done(action)
 		info = {'True prediction':counts[0],'Total':counts[1]}
-		return np.array(ob), reward, episode_over, info
+		if (self.steps_done>=len(self.missing_target)):
+			tac = self.task.target_dictionary.eos()
+		else:
+			tac = self.missing_target[self.steps_done]
+		return np.array(ob), reward, episode_over, [info,tac]
 
 	def is_done(self,action):     
 		if action == self.task.target_dictionary.eos():
@@ -91,19 +97,25 @@ class NMTEnv(gym.Env):
 		self.source = training_pair['net_input']['src_tokens'].numpy().tolist()[0]
 		self.target = training_pair['target'].numpy().tolist()[0]
 		self.generation = []
+		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-1:])
+		self.steps_done = 0
 
 		if len(self.target)- 1<= self.n_missing_words:
 			self.previous = [self.task.target_dictionary.eos()]
 		else:
-			self.previous = training_pair['net_input']['prev_output_tokens'].numpy().tolist()[0][:-1*self.n_missing_words] #-1 to avoid fullstop 
+			# self.previous = training_pair['net_input']['prev_output_tokens'].numpy().tolist()[0][:-1*self.n_missing_words] #-1 to avoid fullstop 
 			self.previous = training_pair['net_input']['prev_output_tokens'].numpy().tolist()[0][:-1*self.n_missing_words] 
-		return np.array([self.source,self.previous])
+		return np.array([self.source,self.previous]),self.missing_target[self.steps_done]	
+
 
 	def _render(self, mode='human', close=False):
 		pass
 
 	def take_action(self,action):
+		# print('action to take is',action)
+		self.steps_done = self.steps_done + 1
 		self.previous.append(int(action))
+		# print('previous after appending is',self.previous)
 		self.generation.append(int(action))
 			
 
@@ -112,18 +124,15 @@ class NMTEnv(gym.Env):
 			return 0,[0,0]
 		else:
 			
-			missing_target = self.target[-1*self.n_missing_words-1:]
-			
 			tp = 0
 			total = len(self.generation)
-			# print(len(self.generation),len(missing_target))
 
-			for i in range(min(len(missing_target),len(self.generation))):
-				if missing_target[i] == self.generation[i]:
+			for i in range(min(len(self.missing_target),len(self.generation))):
+				if self.missing_target[i] == self.generation[i]:
 					tp+=1
 
 
-			sen_t = self.task.tgt_dict.string(torch.tensor(missing_target),bpe_symbol='@@ ')
+			sen_t = self.task.tgt_dict.string(torch.tensor(self.missing_target),bpe_symbol='@@ ')
 			sen_g = self.task.tgt_dict.string(torch.tensor(self.generation),bpe_symbol='@@ ')
 
 

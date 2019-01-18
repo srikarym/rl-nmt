@@ -4,24 +4,24 @@ import torch
 from baselines.common.vec_env import VecEnvWrapper
 import torch.nn as nn
 import torch
-
+import numpy as np
 
 def reshape_batch(obs):
-    max_len = 0
-    for pair in obs:
-        s,t = pair
-        max_len = max(max_len,s.shape[1],t.shape[1])
-    bigs = []
-    bigt = []
-    for pair in obs:
-        s,t = pair
-        news = torch.ones([s.shape[0],max_len])
-        newt = torch.ones([t.shape[0],max_len])
-        news[:,:s.shape[1]] = s
-        newt[:,:t.shape[1]] = t
-        bigs.append(news)
-        bigt.append(newt)
-    return (bigs,bigt)
+	max_len = 0
+	for pair in obs:
+		s,t = pair
+		max_len = max(max_len,s.shape[1],t.shape[1])
+	bigs = []
+	bigt = []
+	for pair in obs:
+		s,t = pair
+		news = torch.ones([s.shape[0],max_len])
+		newt = torch.ones([t.shape[0],max_len])
+		news[:,:s.shape[1]] = s
+		newt[:,:t.shape[1]] = t
+		bigs.append(news)
+		bigt.append(newt)
+	return (bigs,bigt)
 
 class VecPyTorch(VecEnvWrapper):
 	def __init__(self, venv, device):
@@ -33,20 +33,25 @@ class VecPyTorch(VecEnvWrapper):
 		# TODO: Fix data types
 
 	def pad(self,obs):
-	    obs = list(map(list, zip(*obs)))
-	    source = obs[0]
-	    target = obs[1]
-	    source = sorted(source,key = len,reverse=True)
-	    target = sorted(target,key = len,reverse=True)
-	    m = max(len(source[0]),len(target[0]))
-	    sp = nn.utils.rnn.pad_sequence([torch.ones([m])] + [torch.tensor(s) for s in source] ,batch_first=True,padding_value=self.pad_val)
+		obs = list(map(list, zip(*obs)))
+		source = obs[0]
+		target = obs[1]
+		source = sorted(source,key = len,reverse=True)
+		target = sorted(target,key = len,reverse=True)
+		m = max(len(source[0]),len(target[0]))
+		sp = nn.utils.rnn.pad_sequence([torch.ones([m])] + [torch.tensor(s) for s in source] ,batch_first=True,padding_value=self.pad_val)
 
-	    tp = nn.utils.rnn.pad_sequence([torch.ones([m])] + [torch.tensor(s) for s in target] ,batch_first=True,padding_value=self.pad_val)
-	    return (sp[1:], tp[1:])
+		tp = nn.utils.rnn.pad_sequence([torch.ones([m])] + [torch.tensor(s) for s in target] ,batch_first=True,padding_value=self.pad_val)
+		return (sp[1:], tp[1:])
 	def reset(self):
 		
-		obs = self.venv.reset()
-		return self.pad(obs)
+		obser = self.venv.reset()
+		obs = []
+		tac = []
+		for ob in obser:
+			obs.append(ob[0])
+			tac.append(ob[1])
+		return self.pad(obs),np.array(tac)
 
 
 	def step_async(self, actions):
@@ -54,9 +59,14 @@ class VecPyTorch(VecEnvWrapper):
 		self.venv.step_async(actions)
 
 	def step_wait(self):
-		obs, reward, done, info = self.venv.step_wait()
-		
+		obs, reward, done, infos = self.venv.step_wait()
 
-		# obs = torch.from_numpy(obs).float().to(self.device)
+
+		info = []
+		tac = []
+		for i in infos:
+			info.append(i[0])
+			tac.append(i[1])
+
 		reward = torch.from_numpy(reward).unsqueeze(dim=1).float()
-		return self.pad(obs), reward, done, info
+		return self.pad(obs), reward, done, info,np.array(tac)

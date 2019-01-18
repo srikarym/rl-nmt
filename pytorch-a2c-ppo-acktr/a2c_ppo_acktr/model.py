@@ -63,8 +63,8 @@ class Policy(nn.Module):
 		raise NotImplementedError
 
 
-	def act(self, inputs, deterministic=False):
-		value, actor_features= self.base(inputs)
+	def act(self, inputs,tac, deterministic=False):
+		value, actor_features,ranks= self.base(inputs,tac)
 
 
 
@@ -77,15 +77,15 @@ class Policy(nn.Module):
 
 		action_log_probs = dist.log_probs(action)
 
-		return value, action, action_log_probs
+		return value, action, action_log_probs,ranks
 
 
 	def get_value(self, inputs):
-		value, _= self.base(inputs)
+		value, _,_= self.base(inputs)
 		return value
 
 	def evaluate_actions(self, inputs, action):
-		value, actor_features = self.base(inputs)
+		value, actor_features,_ = self.base(inputs)
 		
 		dist = torch.distributions.Categorical(actor_features)
 
@@ -290,7 +290,7 @@ class AttnBase(NNBase):
 
 		self.train()
 
-	def forward(self,inputs):
+	def forward(self,inputs,tac=None):
 		# s = inputs[:,0,:].long().to(device)
 		# t = inputs[:,1,:].long().to(device)
 		s = inputs[0].long().to(device)
@@ -300,10 +300,6 @@ class AttnBase(NNBase):
 
 		dec_hidden,dec_out = self.decoder(t,enc_out)
 
-		# out = torch.ones([dec_out.shape[0],dec_out.shape[-1]]).to(device)
-		# hidd = torch.ones([dec_hidden.shape[0],dec_hidden.shape[-1]]).to(device)
-
-		# print()
 		
 		outs = np.ones((dec_out.shape[0],dec_out.shape[-1]))
 		hidden = np.ones((dec_hidden.shape[0],dec_hidden.shape[-1]))
@@ -326,7 +322,19 @@ class AttnBase(NNBase):
 		# if self.is_recurrent:
 		# 	outs, rnn_hxs = self._forward_gru(outs, rnn_hxs, masks)
 
+		if tac is None:
+			return self.critic_linear(hidden), sm ,None
+		else:
+			sm_np = sm.cpu().numpy()
+			args = np.argsort(sm_np)
+			ranks = []
+			# print('tac in model is',tac)
+			for i in range(args.shape[0]):
+				ranks.append(args[i,tac[i]])
+			return self.critic_linear(hidden), sm,ranks
 
-		return self.critic_linear(hidden), sm
+		
+
+		
 
 
