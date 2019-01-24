@@ -16,15 +16,15 @@ from a2c_ppo_acktr.storage import RolloutStorage
 from arguments import get_args
 from utils import reshape_batch
 from tensorboardX import SummaryWriter
-import wandb
+# import wandb
 
 args = get_args()
-wandb.init(project=args.wandb_name)
-config = wandb.config
+# wandb.init(project=args.wandb_name)
+# config = wandb.config
 
-config.batch_size = args.ppo_batch_size
-config.num_processes = args.num_processes
-config.lr = args.lr
+# config.batch_size = args.ppo_batch_size
+# config.num_processes = args.num_processes
+# config.lr = args.lr
 
 writer = SummaryWriter(args.log_dir)
 
@@ -53,7 +53,7 @@ envs = VecPyTorch(envs,'cuda')
 
 base_kwargs={'recurrent': False,'dummyenv':envs.dummyenv,'n_proc':args.num_processes}
 actor_critic = Policy(envs.observation_space.shape, envs.action_space,'Attn',base_kwargs)
-wandb.watch(actor_critic)
+# wandb.watch(actor_critic)
 
 
 agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_size,
@@ -70,7 +70,7 @@ else:
 	sen_per_epoch = args.sen_per_epoch
 
 
-rollouts = RolloutStorage(args.num_steps*(2*training_scheme[0]+1)+1, args.num_processes,
+rollouts = RolloutStorage(args.num_steps,(2*training_scheme[0]+1), args.num_processes,
 						envs.observation_space.shape, envs.action_space)
 print('Started training')
 for epoch in range(args.n_epochs+1):
@@ -99,7 +99,7 @@ for epoch in range(args.n_epochs+1):
 			envs = SubprocVecEnv(envs)
 			envs = VecPyTorch(envs,'cuda')
 
-			rollouts = RolloutStorage(args.num_steps*(2*n_missing_words+1), args.num_processes,
+			rollouts = RolloutStorage(args.num_steps,(2*n_missing_words+1), args.num_processes,
 							envs.observation_space.shape, envs.action_space)
 
 
@@ -170,7 +170,7 @@ for epoch in range(args.n_epochs+1):
 		mean_reward_epoch+= np.mean(rewards)
 		ranks_epoch+= ranks_iter/total_steps
 
-		rollouts.after_update()
+		# rollouts.after_update()
 
 
 	total_loss = args.value_loss_coef*value_loss + action_loss - dist_entropy*args.entropy_coef
@@ -186,12 +186,12 @@ for epoch in range(args.n_epochs+1):
 	writer.add_scalar('Learning rate',args.lr,epoch)
 	writer.add_scalar('Total loss',total_loss/sen_per_epoch,epoch)
 
-	wandb.log({"Value loss ": value_loss_epoch/sen_per_epoch,
-               "Action loss": action_loss_epoch/sen_per_epoch,
-               "Dist entropy": dist_entropy_epoch/sen_per_epoch,
-               "Mean reward":mean_reward_epoch/sen_per_epoch,
-               "Mean rank":ranks_epoch/sen_per_epoch,
-               "Total loss":total_loss/sen_per_epoch})
+	# wandb.log({"Value loss ": value_loss_epoch/sen_per_epoch,
+ #               "Action loss": action_loss_epoch/sen_per_epoch,
+ #               "Dist entropy": dist_entropy_epoch/sen_per_epoch,
+ #               "Mean reward":mean_reward_epoch/sen_per_epoch,
+ #               "Mean rank":ranks_epoch/sen_per_epoch,
+ #               "Total loss":total_loss/sen_per_epoch})
 
 
 	if (epoch%args.save_interval == 0 and epoch!=0):

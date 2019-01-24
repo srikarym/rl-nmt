@@ -42,7 +42,7 @@ epoch_itr = task.get_batch_iterator(
 	required_batch_size_multiple=1,
 	
 )
-train_data = list(epoch_itr.next_epoch_itr())
+train_data = list(epoch_itr.next_epoch_itr())[:10]
 
 class NMTEnv(gym.Env):
 	metadata = {'render.modes': ['human']}
@@ -52,7 +52,7 @@ class NMTEnv(gym.Env):
 
 	def __init__(self):
 		self.task = task
-		self.train_data = train_data
+		self.train_data = train_data[:10]
 		self.previous = None
 		self.source = None
 		self.target = None
@@ -76,7 +76,13 @@ class NMTEnv(gym.Env):
 		reward,counts = self.get_reward(action)
 
 		ob = [self.source,self.previous]
-		episode_over = self.is_done(action)
+		# episode_over = self.is_done(action)
+
+		if self.generation == []:
+			episode_over = False
+		else:
+			episode_over = True
+
 		info = {'True prediction':counts[0],'Total':counts[1]}
 		if (self.steps_done>=len(self.missing_target)):
 			tac = self.task.target_dictionary.eos()
@@ -120,62 +126,17 @@ class NMTEnv(gym.Env):
 			
 
 	def get_reward(self,action):
-		if action != self.task.target_dictionary.eos():
-			return 0,[0,0]
-		else:
 			
-			tp = 0
-			total = min(len(self.missing_target),len(self.generation))
+		tp = 0
+		total = 1
 
-			for i in range(min(len(self.missing_target),len(self.generation))):
-				if self.missing_target[i] == self.generation[i]:
-					tp+=1
+		if (self.target[-2] == self.generation[0]):
+			reward = 100
+			tp = 1
+		else:
+			reward = 0
 
-
-			sen_t = self.task.tgt_dict.string(torch.tensor(self.missing_target),bpe_symbol='@@ ')
-			sen_g = self.task.tgt_dict.string(torch.tensor(self.generation),bpe_symbol='@@ ')
-
-
-			if (self.n_missing_words == 1):
-				total = 2
-				if (self.target[-2] == self.generation[0]):
-					reward = 100
-					tp = 1
-				else:
-					tp = 0
-					reward = 0
-
-			elif (self.n_missing_words == 2):
-				total = 4
-				if (sorted(self.target[-3:-1]) == sorted(self.generation[:2])):
-					reward = 100
-					tp = 2
-				elif(self.target[-3] == self.generation[0]):
-					reward = 50
-					tp = 1
-				else:
-					tp = 0
-					reward = 0
-
-			elif(self.n_missing_words == 3):
-				total = 6
-				if (sorted(self.target[-4:-1]) == sorted(self.generation[:3])):
-					reward = 100
-					tp = 3
-				elif(sorted(self.target[-3:-1]) == sorted(self.generation[:2])):
-					reward = 66
-					tp = 2
-				elif(self.target[-3] == self.generation[0]):
-					reward = 33
-					tp = 1
-				else:
-					tp = 0
-					reward = 0
-
-			else:
-				reward = sentence_bleu(sen_t,sen_g)
-
-			return reward,[tp,total]
+		return reward,[tp,total]
 
 
 	@property
