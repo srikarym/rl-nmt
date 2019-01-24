@@ -55,11 +55,11 @@ class RolloutStorage(object):
 		# self.obs_s = torch.cat(obs[0])
 		# self.obs_t = torch.cat(obs[1])
 		# self.recurrent_hidden_states[self.step + 1].copy_(recurrent_hidden_states)
-		self.actions[self.step*self.roll + self.roll].copy_(actions.squeeze())
-		self.action_log_probs[self.step*self.roll + self.roll].copy_(action_log_probs.squeeze())
-		self.value_preds[self.step*self.roll + self.roll].copy_(value_preds.squeeze())
-		self.rewards[self.step*self.roll + self.roll].copy_(rewards.squeeze())
-		self.masks[self.step*self.roll + self.roll].copy_(masks.squeeze())
+		self.actions[self.step*self.roll + self.roll].copy_(actions)
+		self.action_log_probs[self.step*self.roll + self.roll].copy_(action_log_probs)
+		self.value_preds[self.step*self.roll + self.roll].copy_(value_preds)
+		self.rewards[self.step*self.roll + self.roll].copy_(rewards)
+		self.masks[self.step*self.roll + self.roll].copy_(masks)
 
 
 		# self.actions[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(actions)
