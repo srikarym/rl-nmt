@@ -16,6 +16,7 @@ from a2c_ppo_acktr.storage import RolloutStorage
 from arguments import get_args
 from utils import reshape_batch
 from tensorboardX import SummaryWriter
+<<<<<<< HEAD
 import wandb
 
 args = get_args()
@@ -26,6 +27,17 @@ if(args.use_wandb):
 	config.batch_size = args.ppo_batch_size
 	config.num_processes = args.num_processes
 	config.lr = args.lr
+=======
+# import wandb
+
+args = get_args()
+# wandb.init(project=args.wandb_name)
+# config = wandb.config
+
+# config.batch_size = args.ppo_batch_size
+# config.num_processes = args.num_processes
+# config.lr = args.lr
+>>>>>>> 576aeb8fab0484a6e61292b523f171835a5903a9
 
 writer = SummaryWriter(args.log_dir)
 
@@ -54,8 +66,12 @@ envs = VecPyTorch(envs,'cuda')
 
 base_kwargs={'recurrent': False,'dummyenv':envs.dummyenv,'n_proc':args.num_processes}
 actor_critic = Policy(envs.observation_space.shape, envs.action_space,'Attn',base_kwargs)
+<<<<<<< HEAD
 if(args.use_wandb):
 	wandb.watch(actor_critic)
+=======
+# wandb.watch(actor_critic)
+>>>>>>> 576aeb8fab0484a6e61292b523f171835a5903a9
 
 
 agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_size,
@@ -122,7 +138,11 @@ for epoch in range(args.n_epochs+1):
 
 			ranks_iter+=np.mean(ranks)
 			masks = torch.FloatTensor([[0.0] if done_ else [1.0]
+<<<<<<< HEAD
 								   for done_ in done])
+=======
+                                   for done_ in done])
+>>>>>>> 576aeb8fab0484a6e61292b523f171835a5903a9
 
 			rollouts.insert( action, action_log_prob, value, reward,masks)
 			rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
@@ -173,6 +193,12 @@ for epoch in range(args.n_epochs+1):
 				   "Mean reward":mean_reward_epoch/sen_per_epoch,
 				   "Mean rank":ranks_epoch/sen_per_epoch,
 				   "Total loss":total_loss/sen_per_epoch})
+	# wandb.log({"Value loss ": value_loss_epoch/sen_per_epoch,
+ #               "Action loss": action_loss_epoch/sen_per_epoch,
+ #               "Dist entropy": dist_entropy_epoch/sen_per_epoch,
+ #               "Mean reward":mean_reward_epoch/sen_per_epoch,
+ #               "Mean rank":ranks_epoch/sen_per_epoch,
+ #               "Total loss":total_loss/sen_per_epoch})
 
 
 	if (epoch%args.save_interval == 0 and epoch!=0):
