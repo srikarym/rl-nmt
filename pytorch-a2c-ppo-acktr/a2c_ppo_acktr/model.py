@@ -310,7 +310,7 @@ class AttnBase(NNBase):
 			if l.shape[0] == 0:
 				l = -1
 			else:
-				l = l[0]
+				l = l[0]-1
 			outs[i] = dec_out.data[i][l].data.cpu().numpy()
 			hidden[i] = dec_hidden.data[i][l].data.cpu().numpy()
 

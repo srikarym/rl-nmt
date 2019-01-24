@@ -26,7 +26,7 @@ class RolloutStorage(object):
 		self.actions = torch.zeros(num_steps* num_processes, action_shape)
 		if action_space.__class__.__name__ == 'Discrete':
 			self.actions = self.actions.long()
-		self.masks = torch.zeros((num_steps + 1)* num_processes, 1)
+		self.masks = torch.ones((num_steps + 1)* num_processes, 1)
 		# self.rewards = torch.zeros(num_steps, num_processes, 1)
 		# self.value_preds = torch.zeros(num_steps + 1, num_processes, 1)
 		# self.returns = torch.zeros(num_steps + 1, num_processes, 1)
@@ -46,7 +46,7 @@ class RolloutStorage(object):
 		self.actions = self.actions.to(device)
 		# self.masks = self.masks.to(device)
 
-	def insert(self,  actions, action_log_probs, value_preds, rewards):
+	def insert(self,  actions, action_log_probs, value_preds, rewards,masks):
 		# self.obs[self.step + 1].copy_(obs)
 		# self.obs_s = torch.cat(obs[0])
 		# self.obs_t = torch.cat(obs[1])
@@ -56,7 +56,7 @@ class RolloutStorage(object):
 		self.action_log_probs[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(action_log_probs)
 		self.value_preds[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(value_preds)
 		self.rewards[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(rewards)
-		# self.masks[self.step + 1].copy_(masks)
+		self.masks[self.step*self.num_processes: (self.step+1)*self.num_processes].copy_(masks)
 		self.step = (self.step + 1) % self.num_steps
 
 	def insert_obs(self,obs):

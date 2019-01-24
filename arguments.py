@@ -66,5 +66,16 @@ def get_args():
 	parser.add_argument('--save-interval', type=int, default=1,
 						help='save interval, one save per n epochs (default: 1)')
 
+	parser.add_argument('--use-rank-reward', action='store_true', default=False,
+						help='use ranks as reward')
+
+
+	parser.add_argument('--sen_per_epoch', type=int, default=0,
+						help='sentences per epoch, change this to collect more data when training with fewer sentences (default: 0) ') 
+						#0 doesnt mean 0
+
+	parser.add_argument('--wandb-name', default='new-exp/',
+						help='Project name in weights and bias (default: new-exp/)')
+
 	args = parser.parse_args()
 	return args
