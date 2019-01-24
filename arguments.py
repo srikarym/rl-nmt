@@ -77,5 +77,8 @@ def get_args():
 	parser.add_argument('--wandb-name', default='new-exp/',
 						help='Project name in weights and bias (default: new-exp/)')
 
+	parser.add_argument('--use-wandb', action='store_true', default=False,
+						help='use generalized advantage estimation')	
+
 	args = parser.parse_args()
 	return args
