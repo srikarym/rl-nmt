@@ -184,12 +184,6 @@ for epoch in range(args.n_epochs+1):
 				   "Mean reward":mean_reward_epoch/sen_per_epoch,
 				   "Mean rank":ranks_epoch/sen_per_epoch,
 				   "Total loss":total_loss/sen_per_epoch})
-	# wandb.log({"Value loss ": value_loss_epoch/sen_per_epoch,
- #               "Action loss": action_loss_epoch/sen_per_epoch,
- #               "Dist entropy": dist_entropy_epoch/sen_per_epoch,
- #               "Mean reward":mean_reward_epoch/sen_per_epoch,
- #               "Mean rank":ranks_epoch/sen_per_epoch,
- #               "Total loss":total_loss/sen_per_epoch})
 
 
 	if (epoch%args.save_interval == 0 and epoch!=0):

@@ -1,8 +1,6 @@
 baselines~=0.1.5
 gym~=0.10.9
 matplotlib~=3.0.2
-pybullet
-pytorch-nlp
 sacrebleu~=1.2.12
 tensorboardX~=1.5
 torch~=1.0.0
