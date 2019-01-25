@@ -37,18 +37,18 @@ class Policy(nn.Module):
 
 			self.base = base(obs_shape[0], **base_kwargs)
 
-		if action_space.__class__.__name__ == "Discrete":
-			num_outputs = action_space.n
-			self.dist = Categorical(self.base.output_size, num_outputs)
-		elif action_space.__class__.__name__ == "Box":
-			num_outputs = action_space.shape[0]
-			self.dist = DiagGaussian(self.base.output_size, num_outputs)
-		elif action_space.__class__.__name__ == "MultiBinary":
-			num_outputs = action_space.shape[0]
-			self.dist = Bernoulli(self.base.output_size, num_outputs)
-		else:
-			raise NotImplementedError
-		self.dist.to(device)
+		# if action_space.__class__.__name__ == "Discrete":
+		# 	num_outputs = action_space.n
+		# 	self.dist = Categorical(self.base.output_size, num_outputs)
+		# elif action_space.__class__.__name__ == "Box":
+		# 	num_outputs = action_space.shape[0]
+		# 	self.dist = DiagGaussian(self.base.output_size, num_outputs)
+		# elif action_space.__class__.__name__ == "MultiBinary":
+		# 	num_outputs = action_space.shape[0]
+		# 	self.dist = Bernoulli(self.base.output_size, num_outputs)
+		# else:
+		# 	raise NotImplementedError
+		# self.dist.to(device)
 
 	@property
 	def is_recurrent(self):
@@ -295,29 +295,30 @@ class AttnBase(NNBase):
 		# t = inputs[:,1,:].long().to(device)
 		s = inputs[0].long().to(device)
 		t = inputs[1].long().to(device) 
+		# s = inputs[0]
+		# t = inputs[1]
 
 		enc_out = self.encoder(s,(torch.ones([s.shape[0]])*s.shape[1]).to(device))
 
 		dec_hidden,dec_out = self.decoder(t,enc_out)
 
-		
-		outs = np.ones((dec_out.shape[0],dec_out.shape[-1]))
-		hidden = np.ones((dec_hidden.shape[0],dec_hidden.shape[-1]))
-
-
+		idx = []
 		for i in range(t.shape[0]):
 			l = (t[i] == self.pad_value).nonzero()
 			if l.shape[0] == 0:
 				l = -1
 			else:
 				l = l[0]-1
-			outs[i] = dec_out.data[i][l].data.cpu().numpy()
-			hidden[i] = dec_hidden.data[i][l].data.cpu().numpy()
+			idx.append(l)
 
-		outs = torch.tensor(outs).float().cuda()
-		hidden = torch.tensor(hidden).float().cuda()
+		outs = dec_out[np.arange(dec_out.shape[0]),idx,:]
+		hidden = dec_hidden[np.arange(dec_out.shape[0]),idx,:]
+
+
+
 		m = torch.nn.Softmax(dim = -1)
 		sm = m(outs)
+		b = sm.grad is None
 
 		# if self.is_recurrent:
 		# 	outs, rnn_hxs = self._forward_gru(outs, rnn_hxs, masks)
