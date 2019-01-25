@@ -291,14 +291,31 @@ class AttnBase(NNBase):
 		self.train()
 
 	def forward(self,inputs,tac=None):
-		# s = inputs[:,0,:].long().to(device)
-		# t = inputs[:,1,:].long().to(device)
 		s = inputs[0].long().to(device)
 		t = inputs[1].long().to(device) 
-		# s = inputs[0]
-		# t = inputs[1]
 
-		enc_out = self.encoder(s,(torch.ones([s.shape[0]])*s.shape[1]).to(device))
+		if (tac is None):
+			nos = []
+			for i in range(s.shape[0]):
+				nos.append(int(torch.sum(s[i] == self.pad_value).cpu().numpy()))
+
+			args = np.argsort(nos)
+			s = s[args]
+			t = t[args]
+
+			if (min(nos)!=0):
+				s = s[:,:s.shape[1]-min(nos)]
+
+		idx = []
+		for i in range(s.shape[0]):
+			l = (s[i] == self.pad_value).nonzero()
+			if l.shape[0] == 0:
+				l = s.shape[1]
+			else:
+				l = l[0].cpu().numpy()[0]
+			idx.append(l)
+
+		enc_out = self.encoder(s,torch.tensor(idx).long().to(device))
 
 		dec_hidden,dec_out = self.decoder(t,enc_out)
 
@@ -318,7 +335,6 @@ class AttnBase(NNBase):
 
 		m = torch.nn.Softmax(dim = -1)
 		sm = m(outs)
-		b = sm.grad is None
 
 		# if self.is_recurrent:
 		# 	outs, rnn_hxs = self._forward_gru(outs, rnn_hxs, masks)
