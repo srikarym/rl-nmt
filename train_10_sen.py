@@ -58,7 +58,7 @@ envs = VecPyTorch(envs,'cuda')
 base_kwargs={'recurrent': False,'dummyenv':envs.dummyenv,'n_proc':args.num_processes}
 actor_critic = Policy(envs.observation_space.shape, envs.action_space,'Attn',base_kwargs)
 if(args.use_wandb):
-	wandb.watch(actor_critic)
+	wandb.watch(actor_critic.base.decoder)
 # wandb.watch(actor_critic)
 
 
