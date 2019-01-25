@@ -60,8 +60,6 @@ class PPO():
 			old_action_log_probs_batch = old_action_log_probs_batch.cuda()
 			adv_targ = adv_targ.cuda()
 
-			
-
 			values, action_log_probs, dist_entropy = self.actor_critic.evaluate_actions(
 				obs_batch, actions_batch)
 			ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
@@ -81,10 +79,8 @@ class PPO():
 
 			self.optimizer.zero_grad()
 			
-			(value_loss * self.value_loss_coef + action_loss -
-			 dist_entropy * self.entropy_coef).backward()
+			(value_loss * self.value_loss_coef + action_loss -dist_entropy * self.entropy_coef).backward()
 
-			# (value_loss * self.value_loss_coef + action_loss).backward()
 			nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
 									 self.max_grad_norm)
 			self.optimizer.step()
