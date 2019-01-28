@@ -7,7 +7,7 @@ from a2c_ppo_acktr.distributions import Categorical, DiagGaussian, Bernoulli
 from a2c_ppo_acktr.utils import init
 SOS_token = 0
 import lstm
-
+import random
 # torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
 
@@ -37,18 +37,18 @@ class Policy(nn.Module):
 
 			self.base = base(obs_shape[0], **base_kwargs)
 
-		# if action_space.__class__.__name__ == "Discrete":
-		# 	num_outputs = action_space.n
-		# 	self.dist = Categorical(self.base.output_size, num_outputs)
-		# elif action_space.__class__.__name__ == "Box":
-		# 	num_outputs = action_space.shape[0]
-		# 	self.dist = DiagGaussian(self.base.output_size, num_outputs)
-		# elif action_space.__class__.__name__ == "MultiBinary":
-		# 	num_outputs = action_space.shape[0]
-		# 	self.dist = Bernoulli(self.base.output_size, num_outputs)
-		# else:
-		# 	raise NotImplementedError
-		# self.dist.to(device)
+		if action_space.__class__.__name__ == "Discrete":
+			num_outputs = action_space.n
+			self.dist = Categorical(self.base.output_size, num_outputs)
+		elif action_space.__class__.__name__ == "Box":
+			num_outputs = action_space.shape[0]
+			self.dist = DiagGaussian(self.base.output_size, num_outputs)
+		elif action_space.__class__.__name__ == "MultiBinary":
+			num_outputs = action_space.shape[0]
+			self.dist = Bernoulli(self.base.output_size, num_outputs)
+		else:
+			raise NotImplementedError
+		self.dist.to(device)
 
 	@property
 	def is_recurrent(self):
@@ -67,8 +67,8 @@ class Policy(nn.Module):
 		value, actor_features,ranks= self.base(inputs,tac)
 
 
+		dist = torch.distributions.Categorical(probs = actor_features)
 
-		dist = torch.distributions.Categorical(actor_features)
 
 		if deterministic:
 			action = dist.mode()
@@ -76,6 +76,7 @@ class Policy(nn.Module):
 			action = dist.sample()
 
 		action_log_probs = dist.log_probs(action)
+		dist_entropy = dist.entropy().mean()
 
 		return value, action, action_log_probs,ranks
 
@@ -86,12 +87,12 @@ class Policy(nn.Module):
 
 	def evaluate_actions(self, inputs, action):
 		value, actor_features,_ = self.base(inputs)
-		
-		dist = torch.distributions.Categorical(actor_features)
+
+		dist = torch.distributions.Categorical(probs = actor_features)
 
 
 
-		action_log_probs = dist.log_probs(action.cuda())
+		action_log_probs = dist.log_probs(action)
 
 		dist_entropy = dist.entropy().mean()
 
@@ -273,18 +274,18 @@ class MLPBase(NNBase):
 
 class AttnBase(NNBase):
 	def __init__(self,num_inputs,dummy_env,recurrent=False, hidden_size=256):
-		super(AttnBase, self).__init__(recurrent, hidden_size,1)
+		super(AttnBase, self).__init__(recurrent, hidden_size,512)
 		self.num_inputs = num_inputs
 		self.dummyenv = dummy_env
 
 		self.encoder = fairseq.models.lstm.LSTMEncoder(self.dummyenv.task.source_dictionary,left_pad=False ,num_layers=2,dropout_in=0.0, dropout_out=0.0,padding_value=1.0).to(device)
 		self.decoder = lstm.LSTMDecoder(self.dummyenv.task.target_dictionary,dropout_in=0.0,num_layers=2, dropout_out=0.0).to(device)
-		
+
 		init_ = lambda m: init(m,
 			nn.init.orthogonal_,
 			lambda x: nn.init.constant_(x, 0))
 
-		
+
 		self.critic_linear = init_(nn.Linear(512, 1)).to(device)
 		self.pad_value = self.dummyenv.task.source_dictionary.pad()
 
@@ -292,7 +293,7 @@ class AttnBase(NNBase):
 
 	def forward(self,inputs,tac=None):
 		s = inputs[0].long().to(device)
-		t = inputs[1].long().to(device) 
+		t = inputs[1].long().to(device)
 
 		if (tac is None):
 			nos = []
@@ -329,7 +330,7 @@ class AttnBase(NNBase):
 			idx.append(l)
 
 		outs = dec_out[np.arange(dec_out.shape[0]),idx,:]
-		hidden = dec_hidden[np.arange(dec_out.shape[0]),idx,:]
+		hidden = dec_hidden[np.arange(dec_hidden.shape[0]),idx,:]
 
 
 
@@ -347,10 +348,10 @@ class AttnBase(NNBase):
 			ranks = []
 			for i in range(args.shape[0]):
 				ranks.append(args[i,tac[i]])
-			return self.critic_linear(hidden), sm,ranks
+			return self.critic_linear(hidden), sm, ranks
 
-		
 
-		
+
+
 
 

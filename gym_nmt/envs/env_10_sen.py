@@ -42,7 +42,7 @@ epoch_itr = task.get_batch_iterator(
 	required_batch_size_multiple=1,
 	
 )
-train_data = list(epoch_itr.next_epoch_itr())[:10]
+train_data = list(epoch_itr.next_epoch_itr())[:1]
 
 class NMTEnv(gym.Env):
 	metadata = {'render.modes': ['human']}
@@ -52,7 +52,7 @@ class NMTEnv(gym.Env):
 
 	def __init__(self):
 		self.task = task
-		self.train_data = train_data[:10]
+		self.train_data = train_data[:1]
 		self.previous = None
 		self.source = None
 		self.target = None
@@ -129,6 +129,8 @@ class NMTEnv(gym.Env):
 			
 		tp = 0
 		total = 1
+
+		# print('prediction is',self.generation[0],'true ac is',self.target[-2],'len of generation is',len(self.generation))
 
 		if (self.target[-2] == self.generation[0]):
 			reward = 100

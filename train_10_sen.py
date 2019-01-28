@@ -26,9 +26,7 @@ if(args.use_wandb):
 	config.batch_size = args.ppo_batch_size
 	config.num_processes = args.num_processes
 	config.lr = args.lr
-# import wandb
 
-args = get_args()
 
 writer = SummaryWriter(args.log_dir)
 
@@ -96,7 +94,7 @@ for epoch in range(args.n_epochs+1):
 		n_missing_words = training_scheme[epoch]
 		
 		rewards = []
-		ranks_iter = 0
+		ranks_iter = []
 		
 		if (epoch%args.n_epochs_per_word == 0 and epoch!=0):
 
@@ -124,7 +122,7 @@ for epoch in range(args.n_epochs+1):
 			ob, reward, done, infos,tac = envs.step(action)
 			# obs.append(ob)
 
-			ranks_iter+=np.mean(ranks)
+			ranks_iter.append(np.mean(ranks))
 			masks = torch.FloatTensor([[0.0] if done_ else [1.0]
 								   for done_ in done])
 
@@ -144,7 +142,7 @@ for epoch in range(args.n_epochs+1):
 		writer.add_scalar('Running Dist entropy',dist_entropy,ite+epoch*sen_per_epoch)
 		writer.add_scalar('Running mean reward ',np.mean(rewards),ite+epoch*sen_per_epoch)
 		writer.add_scalar('Steps per sec',total_steps/(end-start),ite+epoch*sen_per_epoch)
-		writer.add_scalar('Running rank of predicted actions',ranks_iter/total_steps,ite+epoch*sen_per_epoch)
+		writer.add_scalar('Running rank of predicted actions',np.mean(ranks_iter),ite+epoch*sen_per_epoch)
 
 
 
@@ -152,9 +150,8 @@ for epoch in range(args.n_epochs+1):
 		action_loss_epoch+=action_loss
 		dist_entropy_epoch+=dist_entropy
 		mean_reward_epoch+= np.mean(rewards)
-		ranks_epoch+= ranks_iter/total_steps
+		ranks_epoch+= np.mean(ranks_iter)
 
-		# rollouts.after_update()
 
 
 	total_loss = args.value_loss_coef*value_loss_epoch + action_loss_epoch - dist_entropy_epoch*args.entropy_coef
