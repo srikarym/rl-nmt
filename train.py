@@ -7,6 +7,7 @@ import time
 import sys
 import wandb
 from modified_subproc import SubprocVecEnv
+sys.path.insert(0, 'pytorch-a2c-ppo-acktr')
 from utils import VecPyTorch
 from a2c_ppo_acktr import algo
 from a2c_ppo_acktr.model import Policy
@@ -17,7 +18,6 @@ from tensorboardX import SummaryWriter
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
-sys.path.insert(0, 'pytorch-a2c-ppo-acktr')
 
 args = get_args()
 if args.use_wandb:
