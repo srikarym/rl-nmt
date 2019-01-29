@@ -90,7 +90,7 @@ for epoch in range(args.n_epochs + 1):
         n_missing_words = training_scheme[epoch]
 
         rewards = []
-        ranks_iter = 0
+        ranks_iter = []
 
         if epoch % args.n_epochs_per_word == 0 and epoch != 0:
             envs = [make_env(env_id=args.env_name, n_missing_words=n_missing_words)
@@ -112,7 +112,7 @@ for epoch in range(args.n_epochs + 1):
 
                 with torch.no_grad():
                     value, action, action_log_prob, ranks = actor_critic.act(ob, tac)
-                ranks_iter += np.mean(ranks)
+                ranks_iter.append(np.mean(ranks))
                 if n == 2 * n_missing_words:
                     true_action = action.cpu().numpy()
                     true_eos_count = np.count_nonzero(true_action == envs.dummyenv.task.target_dictionary.eos())
@@ -161,7 +161,7 @@ for epoch in range(args.n_epochs + 1):
         action_loss_epoch += action_loss
         dist_entropy_epoch += dist_entropy
         mean_reward_epoch += np.mean(rewards)
-        ranks_epoch += ranks_iter / total_steps
+        ranks_epoch += np.mean(ranks_iter)
 
     # rollouts.after_update()
 
