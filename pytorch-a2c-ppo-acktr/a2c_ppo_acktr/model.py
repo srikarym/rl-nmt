@@ -332,9 +332,18 @@ class AttnBase(NNBase):
         if tac is None:
             return self.critic_linear(hidden), sm, None
         else:
+
             sm_np = sm.cpu().numpy()
-            args = np.argsort(sm_np)
+            probs = sm_np[np.arange(sm_np.shape[0]),tac]
+
+            np.ndarray.sort(sm_np)
+
             ranks = []
-            for i in range(args.shape[0]):
-                ranks.append(args[i, tac[i]])
+            for i in range(t.shape[0]):
+                # print(np.nonzero(sm_np[i] == probs[i]))
+                for j in range(sm_np[0].shape[0]):
+                    if sm_np[i][j] == probs[i]:
+                        a = True
+                        break
+                ranks.append(sm_np[0].shape[0] - j)
             return self.critic_linear(hidden), sm, ranks

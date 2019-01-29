@@ -42,7 +42,7 @@ epoch_itr = task.get_batch_iterator(
 	required_batch_size_multiple=1,
 	
 )
-train_data = list(epoch_itr.next_epoch_itr())[:1]
+train_data = list(epoch_itr.next_epoch_itr())[:10]
 
 class NMTEnv(gym.Env):
 	metadata = {'render.modes': ['human']}
@@ -52,7 +52,7 @@ class NMTEnv(gym.Env):
 
 	def __init__(self):
 		self.task = task
-		self.train_data = train_data[:1]
+		self.train_data = train_data[:10]
 		self.previous = None
 		self.source = None
 		self.target = None
