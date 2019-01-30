@@ -336,6 +336,7 @@ class AttnBase(NNBase):
             sm_np = sm.cpu().numpy()
             probs = sm_np[np.arange(sm_np.shape[0]),tac]
 
+<<<<<<< HEAD
             np.ndarray.sort(sm_np)
 
             ranks = []
@@ -346,4 +347,13 @@ class AttnBase(NNBase):
                         a = True
                         break
                 ranks.append(sm_np[0].shape[0] - j)
+=======
+            # args = np.argsort(sm_np)
+            np.ndarray.sort(sm_np)
+            sm_np = np.flip(sm_np)
+
+            ranks = []
+            for i in range(t.shape[0]):
+                ranks.append(np.nonzero(sm_np[i] == probs[i])[0][0])
+>>>>>>> da83aa34b518dd0db7bd033f0eee9b61a85e2941
             return self.critic_linear(hidden), sm, ranks
