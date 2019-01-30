@@ -142,7 +142,8 @@ for epoch in range(args.n_epochs + 1):
 
         rollouts.insert_obs(reshape_batch(obs))
 
-        next_value = actor_critic.get_value(ob)
+        with torch.no_grad():
+            next_value = actor_critic.get_value(ob)
 
         rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
         end = time.time()
@@ -155,7 +156,7 @@ for epoch in range(args.n_epochs + 1):
         writer.add_scalar('Percentage of true predictions in top1', truepred_iter * 100 / totalpred_iter,
                           ite + epoch * sen_per_epoch)
         writer.add_scalar('Steps per sec', total_steps / (end - start), ite + epoch * sen_per_epoch)
-        writer.add_scalar('Running rank of predicted actions', ranks_iter / total_steps, ite + epoch * sen_per_epoch)
+        writer.add_scalar('Running rank of predicted actions', np.mean(ranks_iter) / total_steps, ite + epoch * sen_per_epoch)
 
         value_loss_epoch += value_loss
         action_loss_epoch += action_loss
