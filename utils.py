@@ -38,11 +38,13 @@ class VecPyTorch(VecEnvWrapper):
 		target = obs[1]
 		source = sorted(source,key = len,reverse=True)
 		target = sorted(target,key = len,reverse=True)
-		ms = len(source[0])
-		mt = len(target[0])
-		sp = nn.utils.rnn.pad_sequence([torch.ones([ms])] + [torch.tensor(s) for s in source] ,batch_first=True,padding_value=self.pad_val)
+		# ms = len(source[0])
+		# mt = len(target[0])
+		max_size = 100
+		
+		sp = nn.utils.rnn.pad_sequence([torch.ones([max_size])] + [torch.tensor(s) for s in source] ,batch_first=True,padding_value=self.pad_val)
 
-		tp = nn.utils.rnn.pad_sequence([torch.ones([mt])] + [torch.tensor(s) for s in target] ,batch_first=True,padding_value=self.pad_val)
+		tp = nn.utils.rnn.pad_sequence([torch.ones([max_size])] + [torch.tensor(s) for s in target] ,batch_first=True,padding_value=self.pad_val)
 		return (sp[1:], tp[1:])
 	def reset(self):
 		

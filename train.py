@@ -73,6 +73,9 @@ else:
 rollouts = RolloutStorage(args.num_steps, (2 * training_scheme[0] + 1), args.num_processes,
                           envs.observation_space.shape, envs.action_space)
 print('Started training')
+obs, tac = envs.reset()
+rollouts.obs_s[0].copy_(obs[0])
+rollouts.obs_t[0].copy_(obs[1])
 for epoch in range(args.n_epochs + 1):
 
     value_loss_epoch = 0.0
@@ -80,8 +83,6 @@ for epoch in range(args.n_epochs + 1):
     dist_entropy_epoch = 0.0
     mean_reward_epoch = 0.0
 
-    truepred_iter = 0
-    totalpred_iter = 0
     ranks_epoch = 0.0
 
     for ite in range(sen_per_epoch):
@@ -101,60 +102,36 @@ for epoch in range(args.n_epochs + 1):
             rollouts = RolloutStorage(args.num_steps, (2 * n_missing_words + 1), args.num_processes,
                                       envs.observation_space.shape, envs.action_space)
 
-        obs = []
 
         for step in range(args.num_steps):
-
-            ob, tac = envs.reset()
-            obs.append(ob)
 
             for n in range(2 * n_missing_words + 1):
 
                 with torch.no_grad():
-                    value, action, action_log_prob, ranks = actor_critic.act(ob, tac)
+                    value, action, action_log_prob, ranks = actor_critic.act(obs, tac)
                 ranks_iter.append(np.mean(ranks))
-                if n == 2 * n_missing_words:
-                    true_action = action.cpu().numpy()
-                    true_eos_count = np.count_nonzero(true_action == envs.dummyenv.task.target_dictionary.eos())
-                    action = (torch.ones([args.num_processes, 1]) * envs.dummyenv.task.target_dictionary.eos()).cuda()
-                ob, reward, done, infos, tac = envs.step(action)
-                if n != 2 * n_missing_words:
-                    obs.append(ob)
+                obs, reward, done, infos, tac = envs.step(action)
 
-                if args.use_rank_reward:
-                    ranks = np.array(ranks)
-                    rank_reward = np.log10(ranks / len(dummy.task.target_dictionary)) * (-12.7)
-                    rank_reward = torch.tensor(rank_reward)
-                    reward = reward * 0.5 + rank_reward.unsqueeze(-1).float()
                 masks = torch.FloatTensor([[0.0] if done_ else [1.0]
                                            for done_ in done])
 
-                rollouts.insert(action, action_log_prob, value, reward, masks)
+                rollouts.insert(obs,action, action_log_prob, value, reward, masks)
 
             rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
-            tp = 0
-            totalp = 0
-            for i in range(len(infos)):
-                tp += infos[i]['True prediction']
-                totalp += infos[i]['Total']
-            truepred_iter += tp
-            totalpred_iter += totalp
-
-        rollouts.insert_obs(reshape_batch(obs))
 
         with torch.no_grad():
-            next_value = actor_critic.get_value(ob)
+            next_value = actor_critic.get_value(rollouts.obs[-1],
+                                                rollouts.recurrent_hidden_states[-1],
+                                                rollouts.masks[-1]).detach()
 
         rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
         end = time.time()
-        total_steps = args.num_steps * args.num_processes * (2 * n_missing_words)
+        total_steps = args.num_steps * args.num_processes * (2 * n_missing_words+1)
         value_loss, action_loss, dist_entropy = agent.update(rollouts)
         writer.add_scalar('Running Value loss', value_loss, ite + epoch * sen_per_epoch)
         writer.add_scalar('Running action loss', action_loss, ite + epoch * sen_per_epoch)
         writer.add_scalar('Running Dist entropy', dist_entropy, ite + epoch * sen_per_epoch)
         writer.add_scalar('Running mean reward ', np.mean(rewards), ite + epoch * sen_per_epoch)
-        writer.add_scalar('Percentage of true predictions in top1', truepred_iter * 100 / totalpred_iter,
-                          ite + epoch * sen_per_epoch)
         writer.add_scalar('Steps per sec', total_steps / (end - start), ite + epoch * sen_per_epoch)
         writer.add_scalar('Running rank of predicted actions', np.mean(ranks_iter) / total_steps, ite + epoch * sen_per_epoch)
 
@@ -164,9 +141,9 @@ for epoch in range(args.n_epochs + 1):
         mean_reward_epoch += np.mean(rewards)
         ranks_epoch += np.mean(ranks_iter)
 
-    # rollouts.after_update()
+    rollouts.after_update()
 
-    total_loss = args.value_loss_coef * value_loss + action_loss - dist_entropy * args.entropy_coef
+    total_loss = args.value_loss_coef * (value_loss_epoch / sen_per_epoch) + (action_loss_epoch / sen_per_epoch) - (dist_entropy_epoch / sen_per_epoch) * args.entropy_coef
 
     writer.add_scalar('Epoch Value loss', value_loss_epoch / sen_per_epoch, epoch)
     writer.add_scalar('Epoch Action loss', action_loss_epoch / sen_per_epoch, epoch)

@@ -1,2 +1,2 @@
-from gym_nmt.envs.env_10_sen import NMTEnv
-from gym_nmt.envs.env_bleu_reduced import NMTEnvRed
+from gym_nmt.envs.env_final import NMTEnv
+from gym_nmt.envs.env_easy import NMTEnvEasy

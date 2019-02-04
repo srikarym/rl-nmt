@@ -6,6 +6,6 @@ register(
 )
 
 register(
-    id='nmt_red-v0',
-    entry_point='gym_nmt.envs:NMTEnvRed',
+    id='nmt_easy-v0',
+    entry_point='gym_nmt.envs:NMTEnvEasy',
 )

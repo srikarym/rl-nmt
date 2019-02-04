@@ -8,17 +8,18 @@ def _flatten_helper(_tensor):
 class RolloutStorage(object):
     def __init__(self, num_steps, num_rolls_per_sen, num_processes, obs_shape, action_space):
         # self.obs = torch.zeros(num_steps + 1, num_processes, *obs_shape)
-        self.obs_s = []
-        self.obs_t = []
+        self.obs_s = torch.ones(num_steps*num_rolls_per_sen+1,num_processes,100)
+        self.obs_t = torch.ones(num_steps*num_rolls_per_sen+1,num_processes,100)
+
         self.num_processes = num_processes
         self.num_steps = num_steps
         self.num_rolls_per_sen = num_rolls_per_sen
         # self.recurrent_hidden_states = torch.zeros(num_steps + 1, num_processes, recurrent_hidden_state_size)
         self.rewards = torch.zeros(num_steps * num_rolls_per_sen, num_processes, 1)
-        self.value_preds = torch.zeros((num_steps + 1) * num_rolls_per_sen, num_processes, 1)
-        # self.returns = torch.zeros(num_steps*num_processes+1,1)
-        self.returns = np.zeros(((num_steps + 1) * num_rolls_per_sen, num_processes, 1))
-        self.action_log_probs = torch.zeros((num_steps) * num_rolls_per_sen, num_processes, 1)
+        self.value_preds = torch.zeros(num_steps * num_rolls_per_sen +1, num_processes, 1)
+        self.returns = torch.zeros(num_steps*num_processes+1,1)
+        self.returns = np.zeros((num_steps * num_rolls_per_sen+1, num_processes, 1))
+        self.action_log_probs = torch.zeros(num_steps * num_rolls_per_sen, num_processes, 1)
         if action_space.__class__.__name__ == 'Discrete':
             action_shape = 1
         else:
@@ -26,7 +27,7 @@ class RolloutStorage(object):
         self.actions = torch.zeros(num_steps * num_rolls_per_sen, num_processes, action_shape)
         if action_space.__class__.__name__ == 'Discrete':
             self.actions = self.actions.long()
-        self.masks = torch.ones((num_steps + 1) * num_rolls_per_sen, num_processes, 1)
+        self.masks = torch.ones(num_steps  * num_rolls_per_sen+1, num_processes, 1)
 
 
         self.step = 0
@@ -35,19 +36,19 @@ class RolloutStorage(object):
     def to(self, device):
         # self.obs = self.obs.to(device)
         # self.recurrent_hidden_states = self.recurrent_hidden_states.to(device)
+        self.obs_s.to(device)
+        self.obs_t.to(device)
         self.rewards = self.rewards.to(device)
         self.value_preds = self.value_preds.to(device)
         self.returns = self.returns.to(device)
         self.action_log_probs = self.action_log_probs.to(device)
         self.actions = self.actions.to(device)
-
-    # self.masks = self.masks.to(device)
+        self.masks = self.masks.to(device)
+        self.returns = self.returns.to(device)
 
     def insert(self, actions, action_log_probs, value_preds, rewards, masks):
-        # self.obs[self.step + 1].copy_(obs)
-        # self.obs_s = torch.cat(obs[0])
-        # self.obs_t = torch.cat(obs[1])
-        # self.recurrent_hidden_states[self.step + 1].copy_(recurrent_hidden_states)
+        self.obs_s[self.step + 1].copy_(obs)
+        self.obs_t[self.step+1].copy_(obs)
         self.actions[self.step].copy_(actions)
         self.action_log_probs[self.step].copy_(action_log_probs)
         self.value_preds[self.step].copy_(value_preds)
@@ -56,14 +57,11 @@ class RolloutStorage(object):
 
         self.step = (self.step + 1) % (self.num_steps * self.num_rolls_per_sen)
 
-    def insert_obs(self, obs):
-        # self.returns = np.zeros((self.num_steps*self.num_processes+1,1))
-        self.obs_s = torch.cat(obs[0])
-        self.obs_t = torch.cat(obs[1])
 
     def after_update(self):
-        # self.obs[0].copy_(self.obs[-1])
-        # self.recurrent_hidden_states[0].copy_(self.recurrent_hidden_states[-1])
+        self.obs_s[0].copy_(self.obs_s[-1])
+        self.obs_t[0].copy_(self.obs_t[-1])
+
         self.masks[0].copy_(self.masks[-1])
 
     def compute_returns(self, next_value, use_gae, gamma, tau):
@@ -76,38 +74,25 @@ class RolloutStorage(object):
                 gae = delta + gamma * tau * self.masks[step + 1] * gae
                 self.returns[step] = gae + self.value_preds[step]
         else:
-            # print (next_value.shape)
-            # self.returns[-self.num_processes:] = next_value
-            # for step in reversed(range(self.rewards.size(0))):
-            # 	self.returns[step] = self.returns[step + 1] * \
-            # 		gamma * self.masks[step + 1] + self.rewards[step]
-            self.returns = np.zeros(((self.num_steps + 1) * self.num_rolls_per_sen, self.num_processes, 1))
             self.returns[-1] = next_value.data.cpu().numpy()
             for step in reversed(range(self.rewards.size(0))):
                 self.returns[step] = self.returns[step + 1] * \
-                                     gamma * self.masks[step + 1].data.cpu().numpy() + self.rewards[
-                                         step].data.cpu().numpy()
-            self.returns = torch.tensor(self.returns).float()
+                                     gamma * self.masks[step + 1] + self.rewards[step]
 
     def feed_forward_generator(self, advantages, batch_size):
-        self.obs_s = self.obs_s
-        self.obs_t = self.obs_t
+
+
+        obs_s_flat = self.obs_s.view(-1,1)
+        obs_t_flat = self.obs_t.view(-1,1)
 
         total = self.obs_s.shape[0]
         arr = np.arange(total)
         np.random.shuffle(arr)
         indices = arr[:batch_size]
 
-        # Throwing rest of the data (CR)
 
         obs_batch_s = self.obs_s[indices]
         obs_batch_t = self.obs_t[indices]
-
-        # actions_flat = _flatten_helper(self.actions)
-        # value_preds_flat = _flatten_helper(self.value_preds)
-        # returns_flat = _flatten_helper(self.returns)
-        # action_log_probs_flat = _flatten_helper(self.action_log_probs)
-        # advantages_flat = _flatten_helper(advantages)
 
         actions_flat = self.actions.view(-1, 1)
         value_preds_flat = self.value_preds.view(-1, 1)
