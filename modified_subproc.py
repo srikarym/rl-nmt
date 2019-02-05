@@ -10,7 +10,7 @@ def worker(remote, parent_remote, env_fn_wrapper):
         while True:
             cmd, data = remote.recv()
             if cmd == 'step':
-                ob, reward, done, info = env.step(data)
+                ob, reward, done, tac = env.step(data)
                 if done:
                     ob,tac = env.reset()
                 remote.send((ob, reward, done, tac))

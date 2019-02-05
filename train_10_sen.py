@@ -29,6 +29,7 @@ if args.use_wandb:
     config.lr = args.lr
 
 writer = SummaryWriter(args.log_dir)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def make_env(env_id, n_missing_words):
@@ -70,8 +71,9 @@ if (args.sen_per_epoch == 0):
 else:
     sen_per_epoch = args.sen_per_epoch
 
-rollouts = RolloutStorage(args.num_steps, (2 * training_scheme[0] + 1), args.num_processes,
+rollouts = RolloutStorage(args.num_steps, 1, args.num_processes,
                           envs.observation_space.shape, envs.action_space)
+rollouts.to(device)
 print('Started training')
 obs, tac = envs.reset()
 rollouts.obs_s[0].copy_(obs[0])
@@ -109,7 +111,7 @@ for epoch in range(args.n_epochs + 1):
             with torch.no_grad():
                 value, action, action_log_prob, ranks = actor_critic.act(obs, tac)
             ranks_iter.append(np.mean(ranks))
-            obs, reward, done, infos, tac = envs.step(action)
+            obs, reward, done, tac = envs.step(action)
 
             masks = torch.FloatTensor([[0.0] if done_ else [1.0]
                                        for done_ in done])
@@ -119,13 +121,11 @@ for epoch in range(args.n_epochs + 1):
             rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
 
         with torch.no_grad():
-            next_value = actor_critic.get_value(rollouts.obs[-1],
-                                                rollouts.recurrent_hidden_states[-1],
-                                                rollouts.masks[-1]).detach()
+            next_value = actor_critic.get_value((rollouts.obs_s[-1],rollouts.obs_t[-1])).detach()
 
         rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
         end = time.time()
-        total_steps = args.num_steps * args.num_processes * (2 * n_missing_words+1)
+        total_steps = args.num_steps * args.num_processes * (1)
         value_loss, action_loss, dist_entropy = agent.update(rollouts)
         writer.add_scalar('Running Value loss', value_loss, ite + epoch * sen_per_epoch)
         writer.add_scalar('Running action loss', action_loss, ite + epoch * sen_per_epoch)

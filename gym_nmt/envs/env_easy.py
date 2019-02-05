@@ -69,11 +69,11 @@ class NMTEnvEasy(gym.Env):
 
 
 
-	def step(self, action):     #Returns [source, all the previously generated tokens], reward, episode_over, {}
+	def step(self, action):     #Returns [source, all the previously generated tokens], reward, episode_over, true actions
 
 		self.take_action(action)
 
-		reward,counts = self.get_reward(action)
+		reward = self.get_reward(action)
 
 		ob = [self.source,self.previous]
 		# episode_over = self.is_done(action)
@@ -90,7 +90,7 @@ class NMTEnvEasy(gym.Env):
 		return np.array(ob), reward, episode_over, tac
 
 	def is_done(self,action):     
-		if action == self.task.target_dictionary.eos():
+		if action == self.task.target_dictionary.eos() :
 			return True
 		return False
 
@@ -117,9 +117,9 @@ class NMTEnvEasy(gym.Env):
 
 	def take_action(self,action):
 		# print('action to take is',action)
-		self.steps_done = self.steps_done + 1
 		self.previous.append(int(action))
 		self.generation.append(int(action))
+		self.steps_done = self.steps_done+1
 			
 
 	def get_reward(self,action):

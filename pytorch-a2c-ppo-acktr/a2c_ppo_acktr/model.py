@@ -285,18 +285,19 @@ class AttnBase(NNBase):
     def forward(self, inputs, tac=None):
         s = inputs[0].long().to(device)
         t = inputs[1].long().to(device)
+        # print(s.shape)
 
-        if (tac is None):
-            nos = []
-            for i in range(s.shape[0]):
-                nos.append(int(torch.sum(s[i] == self.pad_value).cpu().numpy()))
+        # if (tac is None):
+        nos = []
+        for i in range(s.shape[0]):
+            nos.append(int(torch.sum(s[i] == self.pad_value).cpu().numpy()))
 
-            args = np.argsort(nos)
-            s = s[args]
-            t = t[args]
+        args = np.argsort(nos)
+        s = s[args]
+        t = t[args]
 
-            if (min(nos) != 0):
-                s = s[:, :s.shape[1] - min(nos)]
+        if (min(nos) != 0):
+            s = s[:, :s.shape[1] - min(nos)]
 
         idx = []
         for i in range(s.shape[0]):

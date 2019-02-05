@@ -62,14 +62,9 @@ class VecPyTorch(VecEnvWrapper):
 		self.venv.step_async(actions)
 
 	def step_wait(self):
-		obs, reward, done, infos = self.venv.step_wait()
+		obs, reward, done, tac = self.venv.step_wait()
 
 
-		info = []
-		tac = []
-		for i in infos:
-			info.append(i[0])
-			tac.append(i[1])
 
 		reward = torch.from_numpy(reward).unsqueeze(dim=1).float()
-		return self.pad(obs), reward, done, info,np.array(tac)
+		return self.pad(obs), reward, done,np.array(tac)
