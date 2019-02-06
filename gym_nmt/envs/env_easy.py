@@ -12,56 +12,29 @@ import fairseq
 from fairseq import tasks
 import itertools
 from copy import deepcopy
-class AttrDict(dict):
-	def __init__(self, *args, **kwargs):
-		super(AttrDict, self).__init__(*args, **kwargs)
-		self.__dict__ = self
 
-arg  = AttrDict()
-arg.update({'task':'translation'})
-arg.update({'data':['data/iwslt14.tokenized.de-en']})
-arg.update({'lazy_load':False})
-arg.update({'left_pad_source':False})
-arg.update({'left_pad_target':False})
-arg.update({'source_lang':None})
-arg.update({'target_lang':None})
-arg.update({'raw_text':False})
-arg.update({'train_subset':'train'})
-arg.update({'valid_subset':'valid'})
-arg.update({'max_source_positions':1024})
-arg.update({'max_target_positions':1024})
-task = fairseq.tasks.setup_task(arg)
-task.load_dataset('train')
-
-epoch_itr = task.get_batch_iterator(
-	dataset=task.dataset(arg.train_subset),
-	max_tokens=4000,
-	max_sentences=1,
-	max_positions=(100,100),
-	ignore_invalid_inputs=True,
-	required_batch_size_multiple=1,
-	
-)
-train_data = list(epoch_itr.next_epoch_itr())[:10]
 
 class NMTEnvEasy(gym.Env):
 	metadata = {'render.modes': ['human']}
 
-	n_vocab = len(task.target_dictionary)
 	max_len = 100
 
 	def __init__(self):
-		self.task = task
-		self.train_data = train_data[:10]
+		# self.task = task
+		# self.train_data = train_data[:10]
 		self.previous = None
 		self.source = None
 		self.target = None
-		self.action = spaces.Discrete(self.n_vocab)
-		self.observation = np.ones((2,self.max_len))
+		self.action = None
+		self.observation = np.ones((2, self.max_len))
 		self.missing_target = None
-		
-	def init_words(self,n_missing_words):
+
+	def init_words(self, n_missing_words,train_data,task):
+		self.task = task
+		self.train_data = train_data[:10]
 		self.n_missing_words = n_missing_words
+		self.n_vocab = len(task.target_dictionary)
+		self.action = spaces.Discrete(self.n_vocab)
 
 	def seed(self, seed=None): #Don't know how this works
 		self.np_random, seed = seeding.np_random(seed)

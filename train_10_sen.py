@@ -15,6 +15,8 @@ from a2c_ppo_acktr.storage import RolloutStorage
 from arguments import get_args
 from utils import reshape_batch
 from tensorboardX import SummaryWriter
+import gc
+import _pickle as pickle
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
@@ -30,16 +32,43 @@ if args.use_wandb:
 
 writer = SummaryWriter(args.log_dir)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+class AttrDict(dict):
+	def __init__(self, *args, **kwargs):
+		super(AttrDict, self).__init__(*args, **kwargs)
+		self.__dict__ = self
 
+def load_cpickle_gc(fname):
+	output = open(fname, 'rb')
+
+	gc.disable()
+
+	mydict = pickle.load(output)
+
+	# enable garbage collector again
+	gc.enable()
+	output.close()
+	return mydict
+
+print('Loading data')
+# with open('data/data.pkl', 'rb') as f:
+# 	train_data = pickle.load(f)
+# with open('data/task.pkl', 'rb') as f:
+# 	task = pickle.load(f)
+train_data = load_cpickle_gc('data/data.pkl')
+task = load_cpickle_gc('data/task.pkl')
+
+
+print('Data loaded')
 
 def make_env(env_id, n_missing_words):
-    def _thunk():
-        env = gym.make(env_id)
-        env.init_words(n_missing_words)
+	def _thunk():
+		env = gym.make(env_id)
+		env.init_words(n_missing_words,train_data,task)
 
-        return env
+		return env
 
-    return _thunk
+	return _thunk
+
 
 
 training_scheme = []
@@ -51,9 +80,12 @@ envs = [make_env(env_id=args.env_name, n_missing_words=training_scheme[0])
         for i in range(args.num_processes)]
 
 envs = SubprocVecEnv(envs)
-envs = VecPyTorch(envs, 'cuda')
+envs = VecPyTorch(envs, 'cuda',task.source_dictionary.pad())
 
-base_kwargs = {'recurrent': False, 'dummyenv': envs.dummyenv, 'n_proc': args.num_processes}
+dummy = gym.make(args.env_name)
+dummy.init_words(training_scheme[0],train_data,task)
+
+base_kwargs = {'recurrent': False, 'dummyenv': dummy, 'n_proc': args.num_processes}
 actor_critic = Policy(envs.observation_space.shape, envs.action_space, 'Attn', base_kwargs)
 if args.use_wandb:
     wandb.watch(actor_critic)
@@ -63,8 +95,7 @@ agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_s
                  eps=args.eps,
                  max_grad_norm=args.max_grad_norm)
 
-dummy = gym.make(args.env_name)
-len_train_data = len(dummy.train_data)
+
 
 if (args.sen_per_epoch == 0):
     sen_per_epoch = len_train_data // (args.num_steps * args.num_processes)
@@ -99,7 +130,7 @@ for epoch in range(args.n_epochs + 1):
             envs = [make_env(env_id=args.env_name, n_missing_words=n_missing_words)
                     for i in range(args.num_processes)]
             envs = SubprocVecEnv(envs)
-            envs = VecPyTorch(envs, 'cuda')
+            envs = VecPyTorch(envs, 'cuda', task.source_dictionary.pad())
 
             rollouts = RolloutStorage(args.num_steps, 1, args.num_processes,
                                       envs.observation_space.shape, envs.action_space)
@@ -124,6 +155,7 @@ for epoch in range(args.n_epochs + 1):
             next_value = actor_critic.get_value((rollouts.obs_s[-1],rollouts.obs_t[-1])).detach()
 
         rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
+        rollouts.after_update()
         end = time.time()
         total_steps = args.num_steps * args.num_processes * (1)
         value_loss, action_loss, dist_entropy = agent.update(rollouts)
@@ -140,7 +172,7 @@ for epoch in range(args.n_epochs + 1):
         mean_reward_epoch += np.mean(rewards)
         ranks_epoch += np.mean(ranks_iter)
 
-    rollouts.after_update()
+
 
     total_loss = args.value_loss_coef * (value_loss_epoch / sen_per_epoch) + (action_loss_epoch / sen_per_epoch) - (dist_entropy_epoch / sen_per_epoch) * args.entropy_coef
 

@@ -54,7 +54,7 @@ class RolloutStorage(object):
         self.action_log_probs[self.step].copy_(action_log_probs)
         self.value_preds[self.step].copy_(value_preds)
         self.rewards[self.step].copy_(rewards)
-        self.masks[self.step].copy_(masks)
+        self.masks[self.step+1].copy_(masks)
 
         self.step = (self.step + 1) % (self.num_steps * self.num_rolls_per_sen)
 

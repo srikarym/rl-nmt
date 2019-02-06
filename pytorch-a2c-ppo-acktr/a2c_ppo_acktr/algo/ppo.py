@@ -2,6 +2,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import numpy as np
+
+def indexing(inputs):
+	s = inputs[0].long()
+	t = inputs[1].long()
+	nos = []
+	for i in range(s.shape[0]):
+		nos.append(int(torch.sum(s[i] == 1).cpu().numpy()))
+
+	args = np.argsort(nos)
+	return args
 
 
 class PPO():
@@ -54,12 +65,21 @@ class PPO():
 					adv_targ = data
 
 				
-				
-			value_preds_batch = value_preds_batch.cuda()
-			return_batch = return_batch.cuda()
-			old_action_log_probs_batch = old_action_log_probs_batch.cuda()
-			adv_targ = adv_targ.cuda()
-			actions_batch = actions_batch.cuda()
+
+
+
+			# value_preds_batch = value_preds_batch.cuda()
+			# return_batch = return_batch.cuda()
+			# old_action_log_probs_batch = old_action_log_probs_batch.cuda()
+			# adv_targ = adv_targ.cuda()
+			# actions_batch = actions_batch.cuda()
+			idxs = indexing(obs_batch)
+			obs_batch = (obs_batch[0][idxs],obs_batch[1][idxs])
+			actions_batch = actions_batch[idxs]
+			value_preds_batch = value_preds_batch[idxs]
+			return_batch = return_batch[idxs]
+			old_action_log_probs_batch = old_action_log_probs_batch[idxs]
+			adv_targ = adv_targ[idxs]
 
 			values, action_log_probs, dist_entropy = self.actor_critic.evaluate_actions(
 				obs_batch, actions_batch)

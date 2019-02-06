@@ -24,12 +24,11 @@ def reshape_batch(obs):
 	return (bigs,bigt)
 
 class VecPyTorch(VecEnvWrapper):
-	def __init__(self, venv, device):
+	def __init__(self, venv, device,pad):
 		"""Return only every `skip`-th frame"""
 		super(VecPyTorch, self).__init__(venv)
 		self.device = device
-		self.dummyenv = gym.make('nmt-v0')
-		self.pad_val = self.dummyenv.task.source_dictionary.pad()
+		self.pad_val = pad
 		# TODO: Fix data types
 
 	def pad(self,obs):
