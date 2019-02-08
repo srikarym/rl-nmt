@@ -75,13 +75,13 @@ class NMTEnvEasy(gym.Env):
 		self.source = training_pair['net_input']['src_tokens'].numpy().tolist()[0]
 		self.target = training_pair['target'].numpy().tolist()[0]
 		self.generation = []
-		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-1:])
+		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-2:]) #should be -1
 		self.steps_done = 0
 
 		if len(self.target)- 1<= self.n_missing_words:
 			self.previous = [self.task.target_dictionary.eos()]
 		else:
-			self.previous = training_pair['net_input']['prev_output_tokens'].numpy().tolist()[0][:-1*self.n_missing_words] 
+			self.previous = training_pair['net_input']['prev_output_tokens'].numpy().tolist()[0][:-1*self.n_missing_words-1] #remove -1 
 		return np.array([self.source,self.previous]),self.missing_target[self.steps_done]	
 
 
@@ -98,7 +98,7 @@ class NMTEnvEasy(gym.Env):
 	def get_reward(self,action):
 			
 
-		if (self.target[-2] == self.generation[0]):
+		if (self.target[-3] == self.generation[0]): #should be -2 for fullstop
 			reward = 100
 		else:
 			reward = 0
