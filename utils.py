@@ -13,7 +13,7 @@ class VecPyTorch(VecEnvWrapper):
 		super(VecPyTorch, self).__init__(venv)
 		self.device = device
 		self.pad_val = pad
-		# TODO: Fix data types
+
 
 	def pad(self,obs):
 		obs = list(map(list, zip(*obs)))

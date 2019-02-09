@@ -316,7 +316,7 @@ class AttnBase(NNBase):
             if l.shape[0] == 0:
                 l = -1
             else:
-                l = l[0] - 1
+                l = l[0]
             idx.append(l)
 
         outs = dec_out[np.arange(dec_out.shape[0]), idx, :]

@@ -154,15 +154,15 @@ for epoch in range(args.n_epochs + 1):
 
             rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
 
-        # with torch.no_grad():
-        #     next_value = actor_critic.get_value((rollouts.obs_s[-1],rollouts.obs_t[-1])).detach()
-        next_value = torch.zeros(args.num_processes,1)
+        with torch.no_grad():
+            next_value = actor_critic.get_value((rollouts.obs_s[-1],rollouts.obs_t[-1])).detach()
+        # next_value = torch.zeros(args.num_processes,1)
 
         rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
+        value_loss, action_loss, dist_entropy = agent.update(rollouts)
         rollouts.after_update()
         end = time.time()
         total_steps = args.num_steps * args.num_processes * (1)
-        value_loss, action_loss, dist_entropy = agent.update(rollouts)
         writer.add_scalar('Running Value loss', value_loss, ite + epoch * sen_per_epoch)
         writer.add_scalar('Running action loss', action_loss, ite + epoch * sen_per_epoch)
         writer.add_scalar('Running Dist entropy', dist_entropy, ite + epoch * sen_per_epoch)
