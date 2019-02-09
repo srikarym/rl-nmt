@@ -69,7 +69,7 @@ class Policy(nn.Module):
         else:
             action = dist.sample()
 
-        action_log_probs = dist.log_probs(action)
+        action_log_probs = dist.log_prob(action)
         dist_entropy = dist.entropy().mean()
 
         return value, action, action_log_probs, ranks
@@ -83,7 +83,7 @@ class Policy(nn.Module):
 
         dist = torch.distributions.Categorical(probs=actor_features)
 
-        action_log_probs = dist.log_probs(action)
+        action_log_probs = dist.log_prob(action)
 
         dist_entropy = dist.entropy().mean()
 
@@ -326,7 +326,7 @@ class AttnBase(NNBase):
         sm = m(outs)
 
         # if self.is_recurrent:
-        # 	outs, rnn_hxs = self._forward_gru(outs, rnn_hxs, masks)
+        #   outs, rnn_hxs = self._forward_gru(outs, rnn_hxs, masks)
 
         if tac is None:
             return self.critic_linear(hidden), sm, None

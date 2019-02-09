@@ -13,7 +13,6 @@ from a2c_ppo_acktr import algo
 from a2c_ppo_acktr.model import Policy
 from a2c_ppo_acktr.storage import RolloutStorage
 from arguments import get_args
-from utils import reshape_batch
 from tensorboardX import SummaryWriter
 import gc
 import _pickle as pickle
@@ -87,8 +86,8 @@ dummy.init_words(training_scheme[0],train_data,task)
 
 base_kwargs = {'recurrent': False, 'dummyenv': dummy, 'n_proc': args.num_processes}
 actor_critic = Policy(envs.observation_space.shape, envs.action_space, 'Attn', base_kwargs)
-if args.use_wandb:
-    wandb.watch(actor_critic)
+# if args.use_wandb:
+#     wandb.watch(actor_critic)
 
 agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_size,
                  args.value_loss_coef, args.entropy_coef, lr=args.lr,
@@ -142,6 +141,10 @@ for epoch in range(args.n_epochs + 1):
             with torch.no_grad():
                 value, action, action_log_prob, ranks = actor_critic.act(obs, tac)
             ranks_iter.append(np.mean(ranks))
+            # print(action)
+            # print(action.shape)
+            action = action.unsqueeze(1)
+            action_log_prob = action_log_prob.unsqueeze(1)
             obs, reward, done, tac = envs.step(action)
 
             masks = torch.FloatTensor([[0.0] if done_ else [1.0]
@@ -151,8 +154,9 @@ for epoch in range(args.n_epochs + 1):
 
             rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
 
-        with torch.no_grad():
-            next_value = actor_critic.get_value((rollouts.obs_s[-1],rollouts.obs_t[-1])).detach()
+        # with torch.no_grad():
+        #     next_value = actor_critic.get_value((rollouts.obs_s[-1],rollouts.obs_t[-1])).detach()
+        next_value = torch.zeros(args.num_processes,1)
 
         rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
         rollouts.after_update()

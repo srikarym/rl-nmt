@@ -6,22 +6,6 @@ import torch.nn as nn
 import torch
 import numpy as np
 
-def reshape_batch(obs):
-	max_len = 0
-	for pair in obs:
-		s,t = pair
-		max_len = max(max_len,s.shape[1],t.shape[1])
-	bigs = []
-	bigt = []
-	for pair in obs:
-		s,t = pair
-		news = torch.ones([s.shape[0],max_len])
-		newt = torch.ones([t.shape[0],max_len])
-		news[:,:s.shape[1]] = s
-		newt[:,:t.shape[1]] = t
-		bigs.append(news)
-		bigt.append(newt)
-	return (bigs,bigt)
 
 class VecPyTorch(VecEnvWrapper):
 	def __init__(self, venv, device,pad):
@@ -35,8 +19,7 @@ class VecPyTorch(VecEnvWrapper):
 		obs = list(map(list, zip(*obs)))
 		source = obs[0]
 		target = obs[1]
-		source = sorted(source,key = len,reverse=True)
-		target = sorted(target,key = len,reverse=True)
+
 		# ms = len(source[0])
 		# mt = len(target[0])
 		max_size = 100
@@ -45,6 +28,7 @@ class VecPyTorch(VecEnvWrapper):
 
 		tp = nn.utils.rnn.pad_sequence([torch.ones([max_size])] + [torch.tensor(s) for s in target] ,batch_first=True,padding_value=self.pad_val)
 		return (sp[1:], tp[1:])
+
 	def reset(self):
 		
 		obser = self.venv.reset()
@@ -62,8 +46,6 @@ class VecPyTorch(VecEnvWrapper):
 
 	def step_wait(self):
 		obs, reward, done, tac = self.venv.step_wait()
-
-
 
 		reward = torch.from_numpy(reward).unsqueeze(dim=1).float()
 		return self.pad(obs), reward, done,np.array(tac)

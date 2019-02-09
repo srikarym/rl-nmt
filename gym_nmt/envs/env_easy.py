@@ -31,7 +31,7 @@ class NMTEnvEasy(gym.Env):
 
 	def init_words(self, n_missing_words,train_data,task):
 		self.task = task
-		self.train_data = train_data[:10]
+		self.train_data = train_data[:2]
 		self.n_missing_words = n_missing_words
 		self.n_vocab = len(task.target_dictionary)
 		self.action = spaces.Discrete(self.n_vocab)

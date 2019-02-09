@@ -17,15 +17,15 @@ Modify standard PyTorch distributions so they are compatible with this code.
 # Categorical
 FixedCategorical = torch.distributions.Categorical
 
-old_sample = FixedCategorical.sample
-FixedCategorical.sample = lambda self: old_sample(self).unsqueeze(-1)
+# old_sample = FixedCategorical.sample
+# FixedCategorical.sample = lambda self: old_sample(self).unsqueeze(-1)
 
-log_prob_cat = FixedCategorical.log_prob
-# prob = FixedCategorical.probs
-FixedCategorical.log_probs = lambda self, actions: log_prob_cat(self, actions.squeeze(-1)).view(actions.size(0), -1).sum(-1).unsqueeze(-1)
-# FixedCategorical.probs = lambda self, actions: prob(self, 
+# log_prob_cat = FixedCategorical.log_prob
+# # prob = FixedCategorical.probs
+# FixedCategorical.log_probs = lambda self, actions: log_prob_cat(self, actions.squeeze(-1)).view(actions.size(0), -1).sum(-1).unsqueeze(-1)
+# # FixedCategorical.probs = lambda self, actions: prob(self, 
 
-FixedCategorical.mode = lambda self: self.probs.argmax(dim=-1, keepdim=True)
+# FixedCategorical.mode = lambda self: self.probs.argmax(dim=-1, keepdim=True)
 
 
 # Normal
@@ -60,11 +60,11 @@ class Categorical(nn.Module):
             lambda x: nn.init.constant_(x, 0),
             gain=0.01)
 
-        # self.linear = init_(nn.Linear(num_inputs, num_outputs))
+        self.linear = init_(nn.Linear(num_inputs, num_outputs))
 
     def forward(self, x):
-        # x = self.linear(x)
-        return FixedCategorical(x)
+        x = self.linear(x)
+        return torch.distributions.Categorical(logits=x)
 
 
 class DiagGaussian(nn.Module):
