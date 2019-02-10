@@ -69,10 +69,11 @@ class Policy(nn.Module):
         else:
             action = dist.sample()
 
-        action_log_probs = dist.log_prob(action)
-        dist_entropy = dist.entropy().mean()
+        # print(action.shape)
 
-        return value, action, action_log_probs, ranks
+        action_log_probs = dist.log_prob(action.squeeze(-1))
+
+        return value, action, action_log_probs.unsqueeze(1), ranks
 
     def get_value(self, inputs):
         value, _, _ = self.base(inputs)
@@ -83,11 +84,11 @@ class Policy(nn.Module):
 
         dist = torch.distributions.Categorical(probs=actor_features)
 
-        action_log_probs = dist.log_prob(action)
+        action_log_probs = dist.log_prob(action.squeeze(-1))
 
         dist_entropy = dist.entropy().mean()
 
-        return value, action_log_probs, dist_entropy
+        return value, action_log_probs.unsqueeze(1), dist_entropy
 
 
 class NNBase(nn.Module):
@@ -290,9 +291,6 @@ class AttnBase(NNBase):
         for i in range(s.shape[0]):
             nos.append(int(torch.sum(s[i] == self.pad_value).cpu().numpy()))
 
-        # args = np.argsort(nos)
-        # s = s[args]
-        # t = t[args]
 
         if (min(nos) != 0):
             s = s[:, :s.shape[1] - min(nos)]
@@ -308,7 +306,7 @@ class AttnBase(NNBase):
 
         enc_out = self.encoder(s, torch.tensor(idx).long().to(device))
 
-        dec_hidden, dec_out = self.decoder(t, enc_out)
+        dec_hidden,dec_out = self.decoder(t, enc_out)
 
         idx = []
         for i in range(t.shape[0]):
@@ -316,7 +314,7 @@ class AttnBase(NNBase):
             if l.shape[0] == 0:
                 l = -1
             else:
-                l = l[0]
+                l = l[0]-1
             idx.append(l)
 
         outs = dec_out[np.arange(dec_out.shape[0]), idx, :]

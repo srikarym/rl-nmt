@@ -49,10 +49,7 @@ def load_cpickle_gc(fname):
 	return mydict
 
 print('Loading data')
-# with open('data/data.pkl', 'rb') as f:
-# 	train_data = pickle.load(f)
-# with open('data/task.pkl', 'rb') as f:
-# 	task = pickle.load(f)
+
 train_data = load_cpickle_gc('data/data.pkl')
 task = load_cpickle_gc('data/task.pkl')
 
@@ -141,10 +138,7 @@ for epoch in range(args.n_epochs + 1):
             with torch.no_grad():
                 value, action, action_log_prob, ranks = actor_critic.act(obs, tac)
             ranks_iter.append(np.mean(ranks))
-            # print(action)
-            # print(action.shape)
-            action = action.unsqueeze(1)
-            action_log_prob = action_log_prob.unsqueeze(1)
+
             obs, reward, done, tac = envs.step(action)
 
             masks = torch.FloatTensor([[0.0] if done_ else [1.0]
@@ -175,8 +169,6 @@ for epoch in range(args.n_epochs + 1):
         dist_entropy_epoch += dist_entropy
         mean_reward_epoch += np.mean(rewards)
         ranks_epoch += np.mean(ranks_iter)
-
-
 
     total_loss = args.value_loss_coef * (value_loss_epoch / sen_per_epoch) + (action_loss_epoch / sen_per_epoch) - (dist_entropy_epoch / sen_per_epoch) * args.entropy_coef
 
