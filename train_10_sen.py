@@ -13,9 +13,9 @@ from a2c_ppo_acktr import algo
 from a2c_ppo_acktr.model import Policy
 from a2c_ppo_acktr.storage import RolloutStorage
 from arguments import get_args
-from tensorboardX import SummaryWriter
 import gc
 import _pickle as pickle
+import torch.nn as nn
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
@@ -29,7 +29,6 @@ if args.use_wandb:
     config.num_processes = args.num_processes
     config.lr = args.lr
 
-writer = SummaryWriter(args.log_dir)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class AttrDict(dict):
 	def __init__(self, *args, **kwargs):
@@ -85,6 +84,8 @@ base_kwargs = {'recurrent': False, 'dummyenv': dummy, 'n_proc': args.num_process
 actor_critic = Policy(envs.observation_space.shape, envs.action_space, 'Attn', base_kwargs)
 # if args.use_wandb:
 #     wandb.watch(actor_critic)
+# actor_critic = nn.DataParallel(actor_critic)
+actor_critic.to(device)
 
 agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_size,
                  args.value_loss_coef, args.entropy_coef, lr=args.lr,
@@ -157,12 +158,6 @@ for epoch in range(args.n_epochs + 1):
         rollouts.after_update()
         end = time.time()
         total_steps = args.num_steps * args.num_processes * (1)
-        writer.add_scalar('Running Value loss', value_loss, ite + epoch * sen_per_epoch)
-        writer.add_scalar('Running action loss', action_loss, ite + epoch * sen_per_epoch)
-        writer.add_scalar('Running Dist entropy', dist_entropy, ite + epoch * sen_per_epoch)
-        writer.add_scalar('Running mean reward ', np.mean(rewards), ite + epoch * sen_per_epoch)
-        writer.add_scalar('Steps per sec', total_steps / (end - start), ite + epoch * sen_per_epoch)
-        writer.add_scalar('Running rank of predicted actions', np.mean(ranks_iter) / total_steps, ite + epoch * sen_per_epoch)
 
         value_loss_epoch += value_loss
         action_loss_epoch += action_loss
@@ -172,14 +167,6 @@ for epoch in range(args.n_epochs + 1):
 
     total_loss = args.value_loss_coef * (value_loss_epoch / sen_per_epoch) + (action_loss_epoch / sen_per_epoch) - (dist_entropy_epoch / sen_per_epoch) * args.entropy_coef
 
-    writer.add_scalar('Epoch Value loss', value_loss_epoch / sen_per_epoch, epoch)
-    writer.add_scalar('Epoch Action loss', action_loss_epoch / sen_per_epoch, epoch)
-    writer.add_scalar('Epoch distribution entropy', dist_entropy_epoch / sen_per_epoch, epoch)
-    writer.add_scalar('Epoch mean reward', mean_reward_epoch / sen_per_epoch, epoch)
-    writer.add_scalar('Epoch mean rank', ranks_epoch / sen_per_epoch, epoch)
-
-    writer.add_scalar('Learning rate', args.lr, epoch)
-    writer.add_scalar('Total loss', total_loss / sen_per_epoch, epoch)
 
     if args.use_wandb:
         wandb.log({"Value loss ": value_loss_epoch / sen_per_epoch,

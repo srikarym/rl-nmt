@@ -6,7 +6,7 @@ from a2c_ppo_acktr.distributions import Categorical, DiagGaussian, Bernoulli
 from a2c_ppo_acktr.utils import init
 import lstm
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class Flatten(nn.Module):
@@ -20,6 +20,7 @@ class Policy(nn.Module):
         if base == 'Attn':
             base = AttnBase
             self.base = base(base_kwargs['n_proc'], base_kwargs['dummyenv'], recurrent=base_kwargs['recurrent'])
+            self.base.to(device)
         else:
 
             if base_kwargs is None:
@@ -34,18 +35,19 @@ class Policy(nn.Module):
 
             self.base = base(obs_shape[0], **base_kwargs)
 
-        if action_space.__class__.__name__ == "Discrete":
-            num_outputs = action_space.n
-            self.dist = Categorical(self.base.output_size, num_outputs)
-        elif action_space.__class__.__name__ == "Box":
-            num_outputs = action_space.shape[0]
-            self.dist = DiagGaussian(self.base.output_size, num_outputs)
-        elif action_space.__class__.__name__ == "MultiBinary":
-            num_outputs = action_space.shape[0]
-            self.dist = Bernoulli(self.base.output_size, num_outputs)
-        else:
-            raise NotImplementedError
-        self.dist.to(device)
+
+        # if action_space.__class__.__name__ == "Discrete":
+        #     num_outputs = action_space.n
+        #     self.dist = Categorical(self.base.output_size, num_outputs)
+        # elif action_space.__class__.__name__ == "Box":
+        #     num_outputs = action_space.shape[0]
+        #     self.dist = DiagGaussian(self.base.output_size, num_outputs)
+        # elif action_space.__class__.__name__ == "MultiBinary":
+        #     num_outputs = action_space.shape[0]
+        #     self.dist = Bernoulli(self.base.output_size, num_outputs)
+        # else:
+        #     raise NotImplementedError
+        # self.dist
 
     @property
     def is_recurrent(self):
