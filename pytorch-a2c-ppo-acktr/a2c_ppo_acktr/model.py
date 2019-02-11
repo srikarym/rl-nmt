@@ -36,18 +36,18 @@ class Policy(nn.Module):
             self.base = base(obs_shape[0], **base_kwargs)
 
 
-        # if action_space.__class__.__name__ == "Discrete":
-        #     num_outputs = action_space.n
-        #     self.dist = Categorical(self.base.output_size, num_outputs)
-        # elif action_space.__class__.__name__ == "Box":
-        #     num_outputs = action_space.shape[0]
-        #     self.dist = DiagGaussian(self.base.output_size, num_outputs)
-        # elif action_space.__class__.__name__ == "MultiBinary":
-        #     num_outputs = action_space.shape[0]
-        #     self.dist = Bernoulli(self.base.output_size, num_outputs)
-        # else:
-        #     raise NotImplementedError
-        # self.dist
+        if action_space.__class__.__name__ == "Discrete":
+            num_outputs = action_space.n
+            self.dist = Categorical(self.base.output_size, num_outputs)
+        elif action_space.__class__.__name__ == "Box":
+            num_outputs = action_space.shape[0]
+            self.dist = DiagGaussian(self.base.output_size, num_outputs)
+        elif action_space.__class__.__name__ == "MultiBinary":
+            num_outputs = action_space.shape[0]
+            self.dist = Bernoulli(self.base.output_size, num_outputs)
+        else:
+            raise NotImplementedError
+        self.dist.to(device)
 
     @property
     def is_recurrent(self):
@@ -64,7 +64,8 @@ class Policy(nn.Module):
     def act(self, inputs, tac, deterministic=False):
         value, actor_features, ranks = self.base(inputs, tac)
 
-        dist = torch.distributions.Categorical(probs=actor_features)
+        # dist = torch.distributions.Categorical(probs=actor_features)
+        dist = self.dist(actor_features)
 
         if deterministic:
             action = dist.mode()
@@ -73,9 +74,11 @@ class Policy(nn.Module):
 
         # print(action.shape)
 
-        action_log_probs = dist.log_prob(action.squeeze(-1))
+        # action_log_probs = dist.log_probs(action.squeeze(-1))
+        action_log_probs = dist.log_probs(action)
 
-        return value, action, action_log_probs.unsqueeze(1), ranks
+        # return value, action, action_log_probs.unsqueeze(1), ranks
+        return value,action,action_log_probs,ranks
 
     def get_value(self, inputs):
         value, _, _ = self.base(inputs)
@@ -84,13 +87,17 @@ class Policy(nn.Module):
     def evaluate_actions(self, inputs, action):
         value, actor_features, _ = self.base(inputs)
 
-        dist = torch.distributions.Categorical(probs=actor_features)
+        # dist = torch.distributions.Categorical(probs=actor_features)
+        dist = self.dist(actor_features)
 
-        action_log_probs = dist.log_prob(action.squeeze(-1))
+        # action_log_probs = dist.log_prob(action.squeeze(-1))
+        action_log_probs = dist.log_probs(action)
+
 
         dist_entropy = dist.entropy().mean()
 
-        return value, action_log_probs.unsqueeze(1), dist_entropy
+        # return value, action_log_probs.unsqueeze(1), dist_entropy
+        return value,action_log_probs,dist_entropy
 
 
 class NNBase(nn.Module):
@@ -182,87 +189,6 @@ class NNBase(nn.Module):
             hxs = hxs.squeeze(0)
 
         return x, hxs
-
-
-class CNNBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=512):
-        super(CNNBase, self).__init__(recurrent, hidden_size, hidden_size)
-
-        init_ = lambda m: init(m,
-                               nn.init.orthogonal_,
-                               lambda x: nn.init.constant_(x, 0),
-                               nn.init.calculate_gain('relu'))
-
-        self.main = nn.Sequential(
-            init_(nn.Conv2d(num_inputs, 32, 8, stride=4)),
-            nn.ReLU(),
-            init_(nn.Conv2d(32, 64, 4, stride=2)),
-            nn.ReLU(),
-            init_(nn.Conv2d(64, 32, 3, stride=1)),
-            nn.ReLU(),
-            Flatten(),
-            init_(nn.Linear(32 * 7 * 7, hidden_size)),
-            nn.ReLU()
-        )
-
-        init_ = lambda m: init(m,
-                               nn.init.orthogonal_,
-                               lambda x: nn.init.constant_(x, 0))
-
-        self.critic_linear = init_(nn.Linear(hidden_size, 1))
-
-        self.train()
-
-    def forward(self, inputs, rnn_hxs, masks):
-        x = self.main(inputs / 255.0)
-
-        if self.is_recurrent:
-            x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
-
-        return self.critic_linear(x), x, rnn_hxs
-
-
-class MLPBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=64):
-        super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
-
-        if recurrent:
-            num_inputs = hidden_size
-
-        init_ = lambda m: init(m,
-                               nn.init.orthogonal_,
-                               lambda x: nn.init.constant_(x, 0),
-                               np.sqrt(2))
-
-        self.actor = nn.Sequential(
-            init_(nn.Linear(num_inputs, hidden_size)),
-            nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)),
-            nn.Tanh()
-        )
-
-        self.critic = nn.Sequential(
-            init_(nn.Linear(num_inputs, hidden_size)),
-            nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)),
-            nn.Tanh()
-        )
-
-        self.critic_linear = init_(nn.Linear(hidden_size, 1))
-
-        self.train()
-
-    def forward(self, inputs, rnn_hxs, masks):
-        x = inputs
-
-        if self.is_recurrent:
-            x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
-
-        hidden_critic = self.critic(x)
-        hidden_actor = self.actor(x)
-
-        return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs
-
 
 class AttnBase(NNBase):
     def __init__(self, num_inputs, dummy_env, recurrent=False, hidden_size=256):

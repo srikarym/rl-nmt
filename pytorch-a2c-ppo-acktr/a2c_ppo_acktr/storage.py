@@ -107,7 +107,7 @@ class RolloutStorage(object):
         old_action_log_probs_batch = action_log_probs_flat[indices]
         adv_targ = advantages_flat[indices]
 
-        return (obs_batch_s.cuda(), obs_batch_t.cuda()), actions_batch, \
+        return (obs_batch_s, obs_batch_t), actions_batch, \
                value_preds_batch, return_batch, old_action_log_probs_batch, adv_targ
 
     def recurrent_generator(self, advantages, num_mini_batch):
