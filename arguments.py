@@ -63,12 +63,17 @@ def get_args():
     parser.add_argument('--save-interval', type=int, default=1,
                         help='save interval, one save per n epochs (default: 1)')
 
-    parser.add_argument('--use-rank-reward', action='store_true', default=False,
-                        help='use ranks as reward')
+    parser.add_argument('--checkpoint', action='store_true', default=False,
+                        help='resume training from checkpoint')
 
     parser.add_argument('--sen_per_epoch', type=int, default=0,
                         help='sentences per epoch, change this to collect more data when training with fewer sentences (default: 0) ')
-    # 0 doesnt mean 0
+
+    parser.add_argument('--num-sentences',type=int,default=10,
+                        help='Num of sentences to train, set this to -1 to use entire data')
+    
+    parser.add_argument('--file-path', default='log/new-exp/',
+                        help='directory to load trained models (default: /log/new-exp)')
 
     parser.add_argument('--wandb-name', default='new-exp/',
                         help='Project name in weights and bias (default: new-exp/)')

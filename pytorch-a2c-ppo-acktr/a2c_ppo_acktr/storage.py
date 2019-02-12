@@ -96,8 +96,8 @@ class RolloutStorage(object):
         obs_batch_t = obs_t_flat[indices]
 
         actions_flat = self.actions.view(-1, 1)
-        value_preds_flat = self.value_preds.view(-1, 1)
-        returns_flat = self.returns.view(-1, 1)
+        value_preds_flat = self.value_preds[:-1].view(-1, 1)
+        returns_flat = self.returns[:-1].view(-1, 1)
         action_log_probs_flat = self.action_log_probs.view(-1, 1)
         advantages_flat = advantages.view(-1, 1)
 
