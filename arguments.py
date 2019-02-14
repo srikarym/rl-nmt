@@ -81,5 +81,8 @@ def get_args():
     parser.add_argument('--use-wandb', action='store_true', default=False,
                         help='use generalized advantage estimation')
 
+    parser.add_argument('--seed', type=int, default=1,
+                        help='random seed (default: 1)')
+
     args = parser.parse_args()
     return args

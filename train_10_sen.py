@@ -16,10 +16,18 @@ from arguments import get_args
 import gc
 import _pickle as pickle
 import torch.nn as nn
-
+from copy import deepcopy
 os.environ['OMP_NUM_THREADS'] = '1'
+import random
 
 args = get_args()
+
+random.seed(args.seed)
+
+torch.manual_seed(args.seed)
+torch.cuda.manual_seed_all(args.seed)
+
+
 if args.use_wandb:
 	wandb.init(project=args.wandb_name)
 	config = wandb.config
@@ -52,10 +60,11 @@ task = load_cpickle_gc('data/task.pkl')
 print('Data loaded')
 
 
-def make_env(env_id, n_missing_words):
+def make_env(env_id, n_missing_words,seed):
 	def _thunk():
 		env = gym.make(env_id)
 		env.init_words(n_missing_words,train_data[:args.num_sentences],task)
+		env.seed()
 
 		return env
 
@@ -66,7 +75,7 @@ training_scheme = []
 for i in range(1, args.max_missing_words):
 	training_scheme.extend([i] * args.n_epochs_per_word)
 
-envs = [make_env(env_id=args.env_name, n_missing_words=training_scheme[0])
+envs = [make_env(env_id=args.env_name, n_missing_words=training_scheme[0],args.seed+i)
 		for i in range(args.num_processes)]
 
 envs = SubprocVecEnv(envs)
@@ -131,7 +140,8 @@ for epoch in range(args.n_epochs + 1):
 	rewards = []
 	ranks_iter = []
 
-	log = log_dict
+	log = deepcopy(log_dict)
+	assert log[indexes]['action'] == []
 
 	if epoch % args.n_epochs_per_word == 0 and epoch != 0:
 		envs = [make_env(env_id=args.env_name, n_missing_words=n_missing_words)
