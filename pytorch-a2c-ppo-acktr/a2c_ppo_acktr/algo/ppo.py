@@ -4,17 +4,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 
-# def indexing(inputs):
-# 	s = inputs[0].long()
-# 	t = inputs[1].long()
-# 	nos = []
-# 	for i in range(s.shape[0]):
-# 		nos.append(int(torch.sum(s[i] == 1).cpu().numpy()))
-
-# 	args = np.argsort(nos)
-# 	return args
-
-
 class PPO():
 	def __init__(self,
 				 actor_critic,

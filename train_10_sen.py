@@ -17,8 +17,7 @@ import gc
 import _pickle as pickle
 import torch.nn as nn
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-
+os.environ['OMP_NUM_THREADS'] = '1'
 
 args = get_args()
 if args.use_wandb:
@@ -39,10 +38,7 @@ def load_cpickle_gc(fname):
 	output = open(fname, 'rb')
 
 	gc.disable()
-
 	mydict = pickle.load(output)
-
-	# enable garbage collector again
 	gc.enable()
 	output.close()
 	return mydict
@@ -64,8 +60,6 @@ def make_env(env_id, n_missing_words):
 		return env
 
 	return _thunk
-
-
 
 training_scheme = []
 
@@ -108,8 +102,19 @@ rollouts = RolloutStorage(args.num_steps, 1, args.num_processes,
 rollouts.to(device)
 print('Started training')
 obs, tac = envs.reset()
+idx = tac[:,1]
+tac = tac[:,0]
 rollouts.obs_s[0].copy_(obs[0])
 rollouts.obs_t[0].copy_(obs[1])
+
+keys=[]
+indexes = []
+for i in range(args.num_sentences):
+	keys.append((train_data[i]['id'].numpy().tolist()[0],train_data[i]['net_input']['src_tokens'],train_data[i]['target']))
+	indexes.append(train_data[i]['id'].numpy().tolist()[0])
+log_dict = {index: {'source':task.src_dict.string(source, bpe_symbol='@@ ').replace('@@ ',''),\
+	'target':task.tgt_dict.string(target, bpe_symbol='@@ ').replace('@@ ',''),'action':[]} for index,source,target in keys}
+
 for epoch in range(args.n_epochs + 1):
 
 	value_loss_epoch = 0.0
@@ -119,70 +124,88 @@ for epoch in range(args.n_epochs + 1):
 
 	ranks_epoch = 0.0
 
-	for ite in range(sen_per_epoch):
-		start = time.time()
+	start = time.time()
 
-		n_missing_words = training_scheme[epoch]
+	n_missing_words = training_scheme[epoch]
 
-		rewards = []
-		ranks_iter = []
+	rewards = []
+	ranks_iter = []
 
-		if epoch % args.n_epochs_per_word == 0 and epoch != 0:
-			envs = [make_env(env_id=args.env_name, n_missing_words=n_missing_words)
-					for i in range(args.num_processes)]
-			envs = SubprocVecEnv(envs)
-			envs = VecPyTorch(envs, 'cuda', task.source_dictionary.pad())
+	log = log_dict
 
-			rollouts = RolloutStorage(args.num_steps, 1, args.num_processes,
-									  envs.observation_space.shape, envs.action_space)
+	if epoch % args.n_epochs_per_word == 0 and epoch != 0:
+		envs = [make_env(env_id=args.env_name, n_missing_words=n_missing_words)
+				for i in range(args.num_processes)]
+		envs = SubprocVecEnv(envs)
+		envs = VecPyTorch(envs, 'cuda', task.source_dictionary.pad())
 
+		rollouts = RolloutStorage(args.num_steps, 1, args.num_processes,
+								  envs.observation_space.shape, envs.action_space)
 
-		for step in range(args.num_steps):
-
-
-			with torch.no_grad():
-				value, action, action_log_prob, ranks = actor_critic.act(obs, tac)
-			ranks_iter.append(np.mean(ranks))
-
-			obs, reward, done, tac = envs.step(action)
-
-			masks = torch.FloatTensor([[0.0] if done_ else [1.0]
-									   for done_ in done])
-
-			rollouts.insert(obs,action, action_log_prob, value, reward, masks)
-
-			rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
+	for step in range(args.num_steps):
 
 		with torch.no_grad():
-			next_value = actor_critic.get_value((rollouts.obs_s[-1],rollouts.obs_t[-1])).detach()
-		# next_value = torch.zeros(args.num_processes,1)
+			value, action, action_log_prob, ranks = actor_critic.act((rollouts.obs_s[step],rollouts.obs_t[step]), tac)
+		ranks_iter.append(np.mean(ranks))
 
-		rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
-		value_loss, action_loss, dist_entropy = agent.update(rollouts)
-		rollouts.after_update()
-		end = time.time()
-		total_steps = args.num_steps * args.num_processes * (1)
+		for j in range(args.num_processes):
+			log[idx[j]]['action'].append(task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
 
-		value_loss_epoch += value_loss
-		action_loss_epoch += action_loss
-		dist_entropy_epoch += dist_entropy
-		mean_reward_epoch += np.mean(rewards)
-		ranks_epoch += np.mean(ranks_iter)
+			log[idx[j]]['tac'] = task.tgt_dict[int(tac[j])]
 
-	total_loss = args.value_loss_coef * (value_loss_epoch / sen_per_epoch) + (action_loss_epoch / sen_per_epoch) - (dist_entropy_epoch / sen_per_epoch) * args.entropy_coef
+		obs, reward, done, tac = envs.step(action)
+
+
+		idx = tac[:,1]
+		tac = tac[:,0]
+
+		masks = torch.FloatTensor([[0.0] if done_ else [1.0]
+								   for done_ in done])
+
+		rollouts.insert(obs,action, action_log_prob, value, reward, masks)
+		rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
+
+	with torch.no_grad():
+		next_value = actor_critic.get_value((rollouts.obs_s[-1],rollouts.obs_t[-1])).detach()
+
+	rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
+	value_loss, action_loss, dist_entropy = agent.update(rollouts)
+	rollouts.after_update()
+	end = time.time()
+	total_steps = args.num_steps * args.num_processes * (1)
+
+	value_loss_epoch += value_loss
+	action_loss_epoch += action_loss
+	dist_entropy_epoch += dist_entropy
+	mean_reward_epoch += np.mean(rewards)
+	ranks_epoch += np.mean(ranks_iter)
+
+	print('\n\nEpoch {} out of {}, Mean reward is {}'.format(epoch,args.n_epochs,mean_reward_epoch))
+	if (args.num_sentences!= -1):
+		for j in range(args.num_sentences):
+			index = indexes[j]
+			print('\nSentence pair {}, source sentence -  {},\n target sentence - {}'\
+				.format(j,log[index]['source'],log[index]['target']))
+			print('True action is',log[index]['tac'])
+			print('Percentage of true action is',log[index]['action'].count(log[index]['tac'])*100/len(log[index]['action']))
+			print('Actions predicted by the model are',log[index]['action'])
+
+	total_loss = args.value_loss_coef * value_loss_epoch  + action_loss_epoch - dist_entropy_epoch  * args.entropy_coef
 
 
 	if args.use_wandb:
-		wandb.log({"Value loss ": value_loss_epoch / sen_per_epoch,
-				   "Action loss": action_loss_epoch / sen_per_epoch,
-				   "Dist entropy": dist_entropy_epoch / sen_per_epoch,
-				   "Mean reward": mean_reward_epoch / sen_per_epoch,
-				   "Mean rank": ranks_epoch / sen_per_epoch,
-				   "Total loss": total_loss / sen_per_epoch})
+		wandb.log({"Value loss ": value_loss_epoch ,
+				   "Action loss": action_loss_epoch ,
+				   "Dist entropy": dist_entropy_epoch ,
+				   "Mean reward": mean_reward_epoch ,
+				   "Mean rank": ranks_epoch,
+				   "Total loss": total_loss })
 
 	if epoch % args.save_interval == 0 and epoch != 0:
-		if not os.path.exists(os.path.join(args.save_dir, args.env_name)):
-			os.makedirs(os.path.join(args.save_dir, args.env_name))
+		extra_name = args.env_name+"_npro_"+str(args.num_processes)+"_bs_"\
+					 +str(args.ppo_batch_size)+"_nsen_"+str(args.num_sentences)
+		if not os.path.exists(os.path.join(args.save_dir, extra_name)):
+			os.makedirs(os.path.join(args.save_dir, extra_name))
 
 		state = {
 			'epoch': epoch,
@@ -190,4 +213,4 @@ for epoch in range(args.n_epochs + 1):
 			'optimizer': agent.optimizer.state_dict(),
 			
 		}
-		torch.save(state, os.path.join(args.save_dir, args.env_name + "_epoch" + str(epoch)))
+		torch.save(state, os.path.join(args.save_dir, extra_name )+ "/model_epoch" + str(epoch))
