@@ -213,7 +213,7 @@ for epoch in range(args.n_epochs + 1):
 
 	if epoch % args.save_interval == 0 and epoch != 0:
 		extra_name = args.env_name+"_npro_"+str(args.num_processes)+"_bs_"\
-					 +str(args.ppo_batch_size)+"_nsen_"+str(args.num_sentences)
+					 +str(args.ppo_batch_size)+"_nsen_"+str(args.num_sentences)+"_seed_"+str(args.seed)
 		if not os.path.exists(os.path.join(args.save_dir, extra_name)):
 			os.makedirs(os.path.join(args.save_dir, extra_name))
 
