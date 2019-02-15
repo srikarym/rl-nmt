@@ -25,17 +25,17 @@ if not os.path.exists(savedir):
 def train(flags, jobname=None, time=24):
     num_processes = flags["num-processes"]
 
-    jobcommand = "srun python3 -B train.py "
+    jobcommand = "srun python3 -B train_10_sen.py "
     args = ["--%s %s" % (flag, str(flags[flag])) for flag in sorted(flags.keys())]
     jobcommand += " ".join(args)
 
-    outname = "seed_{}_nsens_{}.txt".format(flags["seed"],flags["num-sentences"])
+    outname = run_name+".txt"
     outname = os.path.join(logdir,outname)
 
-    jobcommand += " |& tee -a outname"
+    jobcommand += " |& tee -a " +outname
     print(jobcommand)
 
-    jobnameattrs="seed_{}_nsens_{}".format(flags["seed"],flags["num-sentences"])
+    jobnameattrs=run_name+"_nsteps_"+str(j['num-steps'])
 
     slurmfile = os.path.join(slurm_scripts, jobnameattrs + '.slurm')
     with open(slurmfile, 'w') as f:
@@ -53,7 +53,7 @@ def train(flags, jobname=None, time=24):
 
         f.write(jobcommand + "\n")
 
-    s = "sbatch --qos batch --gres=gpu:1 --nodes=1 "
+    s = "sbatch --qos batch --gres=gpu:1 --constraint=gpu_12gb --nodes=1 "
     s += "--mem=100GB --time=%d:00:00 %s &" % (
         time, os.path.join(slurm_scripts, jobnameattrs + ".slurm"))
     os.system(s)
@@ -61,11 +61,11 @@ def train(flags, jobname=None, time=24):
 
 job = {
         "env-name":"nmt_easy_2-v0","n-epochs-per-word": 10000, "n-epochs": 10000,
-        "num-processes": 60, "ppo-batch-size" :800, "log-dir": logdir, "save-dir": savedir,
-        "save-interval":1000,"num-steps": 150,"sen_per_epoch": 1,
+        "num-processes": 50, "ppo-batch-size" :800, "log-dir": logdir, "save-dir": savedir,
+        "save-interval":1000,"num-steps": 16,"sen_per_epoch": 1,"use-wandb":"","use-gae":"",
         }
 
-for seed in range(1, 5):
+for seed in range(1, 4):
     j = {k:v for k,v in job.items()}
     time = 48
     j["seed"] = seed
@@ -73,5 +73,5 @@ for seed in range(1, 5):
         j["num-sentences"]=nsen
         j["save-dir"]=os.path.join(j["save-dir"],str(nsen))
         j["wandb-name"]=str(nsen)
-        j["run-name"]="nsen_{}_seed_{}".format(nsen,seed)
-        train(j, jobname=j["run-name"], time=time)
+        run_name="nsen_{}_seed_{}".format(nsen,seed)
+        train(j, jobname=run_name, time=time)
