@@ -116,13 +116,13 @@ tac = tac[:,0]
 rollouts.obs_s[0].copy_(obs[0])
 rollouts.obs_t[0].copy_(obs[1])
 
-keys=[]
-indexes = []
-for i in range(args.num_sentences):
-	keys.append((train_data[i]['id'].numpy().tolist()[0],train_data[i]['net_input']['src_tokens'],train_data[i]['target']))
-	indexes.append(train_data[i]['id'].numpy().tolist()[0])
-log_dict = {index: {'source':task.src_dict.string(source, bpe_symbol='@@ ').replace('@@ ',''),\
-	'target':task.tgt_dict.string(target, bpe_symbol='@@ ').replace('@@ ',''),'action':[]} for index,source,target in keys}
+# keys=[]
+# indexes = []
+# for i in range(args.num_sentences):
+# 	keys.append((train_data[i]['id'].numpy().tolist()[0],train_data[i]['net_input']['src_tokens'],train_data[i]['target']))
+# 	indexes.append(train_data[i]['id'].numpy().tolist()[0])
+# log_dict = {index: {'source':task.src_dict.string(source, bpe_symbol='@@ ').replace('@@ ',''),\
+# 	'target':task.tgt_dict.string(target, bpe_symbol='@@ ').replace('@@ ',''),'action':[]} for index,source,target in keys}
 
 for epoch in range(args.n_epochs + 1):
 
@@ -140,7 +140,7 @@ for epoch in range(args.n_epochs + 1):
 	rewards = []
 	ranks_iter = []
 
-	log = deepcopy(log_dict)
+	# log = deepcopy(log_dict)
 
 	if epoch % args.n_epochs_per_word == 0 and epoch != 0:
 		envs = [make_env(env_id=args.env_name, n_missing_words=n_missing_words)
@@ -156,13 +156,24 @@ for epoch in range(args.n_epochs + 1):
 		with torch.no_grad():
 			value, action, action_log_prob, ranks = actor_critic.act((rollouts.obs_s[step],rollouts.obs_t[step]), tac)
 		ranks_iter.append(np.mean(ranks))
-
-		for j in range(args.num_processes):
-			log[idx[j]]['action'].append(task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
-
-			log[idx[j]]['tac'] = task.tgt_dict[int(tac[j])]
-
 		obs, reward, done, tac = envs.step(action)
+		
+		if (step==0):
+			print('Epoch',epoch,'step',step)
+			# print('source sentence is',)
+			for j in range(args.num_processes):
+				print('source sentence is',task.src_dict.string(rollouts.obs_s[step][j], bpe_symbol='@@ ').replace('@@ ',''))
+				print('target sentence is',task.tgt_dict.string(rollouts.obs_t[step][j], bpe_symbol='@@ ').replace('@@ ',''))
+				print('True action is',task.tgt_dict[int(tac[j])])
+				print('action predicted by the model is',task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
+				print('rewards are',reward[j])
+				print()
+
+		# for j in range(args.num_processes):
+		# 	log[idx[j]]['action'].append(task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
+
+		# 	log[idx[j]]['tac'] = task.tgt_dict[int(tac[j])]
+		
 
 
 		idx = tac[:,1]

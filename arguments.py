@@ -84,5 +84,8 @@ def get_args():
     parser.add_argument('--seed', type=int, default=1,
                         help='random seed (default: 1)')
 
+    parser.add_argument('--eval-interval', type=int, default=None,
+                        help='eval interval, one eval per n updates (default: None)')
+
     args = parser.parse_args()
     return args

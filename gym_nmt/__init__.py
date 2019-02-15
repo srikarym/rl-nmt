@@ -1,8 +1,8 @@
 from gym.envs.registration import register
 
 register(
-    id='nmt-v0',
-    entry_point='gym_nmt.envs:NMTEnv',
+    id='nmt_fake-v0',
+    entry_point='gym_nmt.envs:NMTEnv_fake',
 )
 
 register(
