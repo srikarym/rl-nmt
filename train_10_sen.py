@@ -223,3 +223,33 @@ for epoch in range(args.n_epochs + 1):
 			
 		}
 		torch.save(state, os.path.join(args.save_dir, extra_name )+ "/model_epoch" + str(epoch))
+
+	if (args.eval_interval is not None and epoch%args.eval_interval == 0):
+		eval_envs = [make_env(env_id=args.env_name, n_missing_words=n_missing_words) for i in range(args.num_processes)]
+		eval_envs = SubprocVecEnv(eval_envs)
+		eval_envs = VecPyTorch(eval_envs, 'cuda', task.source_dictionary.pad())
+		eval_episode_rewards = []
+
+		obs,tac = eval_envs.reset()
+
+		while len(eval_episode_rewards) < args.num_sentences:
+			with torch.no_grad():
+				_,action,_,_ = actor_critic.act(obs, tac=None,deterministic=True)
+
+
+			obs, reward, done, _ = envs.step(action)
+
+
+			masks = torch.FloatTensor([[0.0] if done_ else [1.0]
+									   for done_ in done])
+
+			eval_episode_rewards.extend(reward.squeeze(1).cpu().numpy().tolist())
+
+		eval_envs.close()
+
+		print(" Evaluation using {} episodes: mean reward {:.5f}\n".
+			format(len(eval_episode_rewards),
+				   np.mean(eval_episode_rewards)))
+
+		if args.use_wandb:
+			wandb.log({"Mean evaluation reward": np.mean(eval_episode_rewards) })
