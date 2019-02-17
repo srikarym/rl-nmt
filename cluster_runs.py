@@ -5,12 +5,13 @@ import os
 import sys
 
 email = "msy290@nyu.edu"
-directory="./"
-slurm_logs = os.path.join(directory, "slurm_logs")
-slurm_scripts = os.path.join(directory, "slurm_scripts")
+directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
+run = "ppo"
+slurm_logs = os.path.join(directory, "slurm_logs",run)
+slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
-logdir = os.path.join(directory, "logs")
-savedir = os.path.join(directory, "models")
+logdir = os.path.join(directory, "logs",run)
+savedir = os.path.join(directory, "models",run)
 
 if not os.path.exists(slurm_logs):
     os.makedirs(slurm_logs)
@@ -32,11 +33,10 @@ def train(flags, jobname=None, time=24):
     outname = run_name+".txt"
     outname = os.path.join(logdir,outname)
 
-    jobcommand += " |& tee -a " +outname
+    jobcommand += " |& tee " +outname
     print(jobcommand)
 
     jobnameattrs=run_name+"_nsteps_"+str(j['num-steps'])
-
     slurmfile = os.path.join(slurm_scripts, jobnameattrs + '.slurm')
     with open(slurmfile, 'w') as f:
         f.write("#!/bin/bash\n")
@@ -60,18 +60,20 @@ def train(flags, jobname=None, time=24):
 
 
 job = {
-        "env-name":"nmt_easy_2-v0","n-epochs-per-word": 10000, "n-epochs": 10000,
+        "env-name":"nmt_fake-v0","n-epochs-per-word": 10000, "n-epochs": 10000,
         "num-processes": 50, "ppo-batch-size" :800, "log-dir": logdir, "save-dir": savedir,
-        "save-interval":1000,"num-steps": 16,"sen_per_epoch": 1,"use-wandb":"","use-gae":"",
+        "save-interval":1000,"num-steps": 150,"sen_per_epoch": 1,"use-wandb":"","use-gae":"",
         }
 
-for seed in range(1, 4):
+for seed in [1,2,3]:
     j = {k:v for k,v in job.items()}
     time = 48
     j["seed"] = seed
-    for nsen in range(10,31,10):
+    old_save_dir = j["save-dir"]
+    for nsen in [10]:
         j["num-sentences"]=nsen
-        j["save-dir"]=os.path.join(j["save-dir"],str(nsen))
+        run_name=run+"_nsen_{}_seed_{}".format(nsen,seed)
+        j["save-dir"]=os.path.join(old_save_dir,str(nsen),run_name)
         j["wandb-name"]=str(nsen)
-        run_name="nsen_{}_seed_{}".format(nsen,seed)
+        j["run-name"]=run+"_"+str(seed)
         train(j, jobname=run_name, time=time)

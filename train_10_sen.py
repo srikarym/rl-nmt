@@ -35,6 +35,7 @@ if args.use_wandb:
 	config.batch_size = args.ppo_batch_size
 	config.num_processes = args.num_processes
 	config.lr = args.lr
+	wandb.run.description = "ppo_"+str(args.seed);
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class AttrDict(dict):
@@ -95,6 +96,12 @@ agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_s
 				 args.value_loss_coef, args.entropy_coef, lr=args.lr,
 				 eps=args.eps,
 				 max_grad_norm=args.max_grad_norm)
+
+
+# agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
+#                                args.entropy_coef, lr=args.lr,
+#                                eps=args.eps, alpha=0.99,
+#                                max_grad_norm=args.max_grad_norm)
 
 if (args.checkpoint):
 	state = torch.load(args.file_path)
@@ -158,16 +165,16 @@ for epoch in range(args.n_epochs + 1):
 		ranks_iter.append(np.mean(ranks))
 		obs, reward, done, tac = envs.step(action)
 		
-		if (step==0):
-			print('Epoch',epoch,'step',step)
-			# print('source sentence is',)
-			for j in range(args.num_processes):
-				print('source sentence is',task.src_dict.string(rollouts.obs_s[step][j], bpe_symbol='@@ ').replace('@@ ',''))
-				print('target sentence is',task.tgt_dict.string(rollouts.obs_t[step][j], bpe_symbol='@@ ').replace('@@ ',''))
-				print('True action is',task.tgt_dict[int(tac[j])])
-				print('action predicted by the model is',task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
-				print('rewards are',reward[j])
-				print()
+		# if (step==0):
+		# 	print('Epoch',epoch,'step',step)
+		# 	# print('source sentence is',)
+		# 	for j in range(args.num_processes):
+		# 		print('source sentence is',task.src_dict.string(rollouts.obs_s[step][j].long(), bpe_symbol='@@ ').replace('@@ ',''))
+		# 		print('target sentence is',task.tgt_dict.string(rollouts.obs_t[step][j].long(), bpe_symbol='@@ ').replace('@@ ',''))
+		# 		print('True action is',task.tgt_dict[int(tac[j])])
+		# 		print('action predicted by the model is',task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
+		# 		print('rewards are',reward[j])
+		# 		print()
 
 		# for j in range(args.num_processes):
 		# 	log[idx[j]]['action'].append(task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
@@ -201,14 +208,14 @@ for epoch in range(args.n_epochs + 1):
 	ranks_epoch += np.mean(ranks_iter)
 
 	print('\n\nEpoch {} out of {}, Mean reward is {}'.format(epoch,args.n_epochs,mean_reward_epoch))
-	if (args.num_sentences!= -1):
-		for j in range(args.num_sentences):
-			index = indexes[j]
-			print('\nSentence pair {}, source sentence -  {},\n target sentence - {}'\
-				.format(j,log[index]['source'],log[index]['target']))
-			print('True action is',log[index]['tac'])
-			print('Percentage of true action is',log[index]['action'].count(log[index]['tac'])*100/len(log[index]['action']))
-			print('Actions predicted by the model are',log[index]['action'])
+	# if (args.num_sentences!= -1):
+	# 	for j in range(args.num_sentences):
+	# 		index = indexes[j]
+	# 		print('\nSentence pair {}, source sentence -  {},\n target sentence - {}'\
+	# 			.format(j,log[index]['source'],log[index]['target']))
+	# 		print('True action is',log[index]['tac'])
+	# 		print('Percentage of true action is',log[index]['action'].count(log[index]['tac'])*100/len(log[index]['action']))
+	# 		print('Actions predicted by the model are',log[index]['action'])
 
 	total_loss = args.value_loss_coef * value_loss_epoch  + action_loss_epoch - dist_entropy_epoch  * args.entropy_coef
 

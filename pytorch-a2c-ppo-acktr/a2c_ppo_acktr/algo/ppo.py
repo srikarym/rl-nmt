@@ -40,14 +40,14 @@ class PPO():
 		action_loss_epoch = 0
 		dist_entropy_epoch = 0
 
+		if self.actor_critic.is_recurrent:
+			data_generator = rollouts.recurrent_generator(
+				advantages, self.num_mini_batch)
+		else:
+			# data_generator = rollouts.feed_forward_generator(
+			# 	advantages, self.num_mini_batch)
+			data = rollouts.feed_forward_generator(advantages, self.batch_size)
 		for e in range(self.ppo_epoch):
-			if self.actor_critic.is_recurrent:
-				data_generator = rollouts.recurrent_generator(
-					advantages, self.num_mini_batch)
-			else:
-				# data_generator = rollouts.feed_forward_generator(
-				# 	advantages, self.num_mini_batch)
-				data = rollouts.feed_forward_generator(advantages, self.batch_size)
 
 			obs_batch, actions_batch, \
 			   value_preds_batch, return_batch, old_action_log_probs_batch, \
@@ -71,11 +71,16 @@ class PPO():
 			else:
 				value_loss = 0.5 * (return_batch - values).pow(2).mean()
 
+			print('action log probs are',action_log_probs)
+			print('advantages are',adv_targ)
+
 			self.optimizer.zero_grad()
 			
 			(value_loss * self.value_loss_coef + action_loss - dist_entropy * self.entropy_coef).backward()
 			# (value_loss * self.value_loss_coef + action_loss ).backward()
 
+
+			
 
 			nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
 									 self.max_grad_norm)
