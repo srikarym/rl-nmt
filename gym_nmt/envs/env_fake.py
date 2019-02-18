@@ -100,9 +100,9 @@ class NMTEnv_fake(gym.Env):
             
 
         if (self.target[-3] == self.generation[0]): #should be -2 for fullstop
-            reward = 100
+            reward = 1
         else:
-            reward = 0
+            reward = -1
 
         return reward
 

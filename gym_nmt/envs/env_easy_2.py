@@ -101,7 +101,7 @@ class NMTEnvEasy_2(gym.Env):
 		print('gen is',self.generation)
 		print('tgt is',self.target)
 		if (self.target[-3] == self.generation[0]): #should be -2 for fullstop]
-			reward = 100
+			reward = 1
 		else:
 			reward = 0
 
