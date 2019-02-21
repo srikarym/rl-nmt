@@ -6,7 +6,7 @@ import sys
 
 email = "msy290@nyu.edu"
 directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
-run = "fake_1"
+run = "1w_eos"
 slurm_logs = os.path.join(directory, "slurm_logs",run)
 slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
@@ -26,7 +26,7 @@ if not os.path.exists(savedir):
 def train(flags, jobname=None, time=24):
     num_processes = flags["num-processes"]
 
-    jobcommand = "srun python3 -B train_fake.py "
+    jobcommand = "srun python3 -B train.py "
     args = ["--%s %s" % (flag, str(flags[flag])) for flag in sorted(flags.keys())]
     jobcommand += " ".join(args)
 
@@ -63,7 +63,7 @@ job = {
         "env-name":"nmt_fake-v0","n-epochs-per-word": 10000, "n-epochs": 10000,
         "num-processes": 50, "ppo-batch-size" :800, "log-dir": logdir, "save-dir": savedir,
         "save-interval":1000,"num-steps": 150,"sen_per_epoch": 1,"use-wandb":"","use-gae":"",
-	"eval-interval":1
+	    "eval-interval":1,"reduced":""
         }
 
 for seed in [1,2,3]:

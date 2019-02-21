@@ -7,27 +7,26 @@ def _flatten_helper(_tensor):
 
 
 class RolloutStorage(object):
-    def __init__(self, num_steps, num_rolls_per_sen, num_processes, obs_shape, action_space):
+    def __init__(self, num_steps, num_processes, obs_shape, action_space):
         # self.obs = torch.zeros(num_steps + 1, num_processes, *obs_shape)
-        self.obs_s = torch.ones(num_steps*num_rolls_per_sen+1,num_processes,100)
-        self.obs_t = torch.ones(num_steps*num_rolls_per_sen+1,num_processes,100)
+        self.obs_s = torch.ones(num_steps+1,num_processes,100)
+        self.obs_t = torch.ones(num_steps+1,num_processes,100)
 
         self.num_processes = num_processes
         self.num_steps = num_steps
-        self.num_rolls_per_sen = num_rolls_per_sen
         # self.recurrent_hidden_states = torch.zeros(num_steps + 1, num_processes, recurrent_hidden_state_size)
-        self.rewards = torch.zeros(num_steps * num_rolls_per_sen, num_processes, 1)
-        self.value_preds = torch.zeros(num_steps * num_rolls_per_sen +1, num_processes, 1)
-        self.returns = torch.zeros(num_steps*num_rolls_per_sen+1,num_processes,1)
-        self.action_log_probs = torch.zeros(num_steps * num_rolls_per_sen, num_processes, 1)
+        self.rewards = torch.zeros(num_steps , num_processes, 1)
+        self.value_preds = torch.zeros(num_steps  +1, num_processes, 1)
+        self.returns = torch.zeros(num_steps+1,num_processes,1)
+        self.action_log_probs = torch.zeros(num_steps , num_processes, 1)
         if action_space.__class__.__name__ == 'Discrete':
             action_shape = 1
         else:
             action_shape = action_space.shape[0]
-        self.actions = torch.zeros(num_steps * num_rolls_per_sen, num_processes, action_shape)
+        self.actions = torch.zeros(num_steps , num_processes, action_shape)
         if action_space.__class__.__name__ == 'Discrete':
             self.actions = self.actions.long()
-        self.masks = torch.ones(num_steps  * num_rolls_per_sen+1, num_processes, 1)
+        self.masks = torch.ones(num_steps + 1, num_processes, 1)
 
 
         self.step = 0
@@ -56,7 +55,7 @@ class RolloutStorage(object):
         self.rewards[self.step].copy_(rewards)
         self.masks[self.step+1].copy_(masks)
 
-        self.step = (self.step + 1) % (self.num_steps * self.num_rolls_per_sen)
+        self.step = (self.step + 1) % (self.num_steps)
 
 
     def after_update(self):

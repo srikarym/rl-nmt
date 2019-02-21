@@ -74,58 +74,13 @@ def load_cpickle_gc(fname):
 	output.close()
 	return mydict
 
-def random_string(N):
-	return ''.join(random.choice(string.ascii_lowercase) for _ in range(N))
-
-
-def create_data(num_sens=10,len_vocab=100,min_len = 10,max_len = 20):
-	
-	data = []
-	for i in range(num_sens):
-		d = {}
-		d['id']=i
-		src = np.random.randint(4,len_vocab,(1,random.choice(range(min_len,max_len))))
-		src = np.insert(src,0,2,1)
-		tg = np.random.randint(4,len_vocab,(1,random.choice(range(min_len,max_len))))
-		prev = np.insert(tg,0,2,1)
-		target = np.append(tg,2)
-		target = target.reshape(1,len(target))
-		
-		d['net_input'] = {'src_tokens':torch.tensor(src),'prev_output_tokens':torch.tensor(prev)}
-		d['target'] = torch.tensor(target)
-		data.append(d)
-	return data
 
 print('Loading data')
 
-if (args.fake):
+train_data = load_cpickle_gc('data/data.pkl')
+task = load_cpickle_gc('data/task.pkl')
 
-
-	len_vocab = 100
-	num_sentences = args.num_sentences
-
-	src = fairseq.data.Dictionary()
-	tgt = fairseq.data.Dictionary()
-
-	task = AttrDict()
-
-	task.update({'source_dictionary':src})
-	task.update({'src_dict':src})
-	task.update({'target_dictionary':tgt})
-	task.update({'tgt_dict':tgt})
-
-
-	for _ in range(len_vocab-4):
-		src.add_symbol(random_string(random.choice(range(3,8))))
-		tgt.add_symbol(random_string(random.choice(range(3,8))))
-
-
-	train_data = create_data(num_sentences,len_vocab)
-
-else:
-	train_data = load_cpickle_gc('data/data.pkl')
-	task = load_cpickle_gc('data/task.pkl')
-
+if (args.reduced):
 	src = fairseq.data.Dictionary()
 	tgt = fairseq.data.Dictionary()
 
@@ -140,7 +95,7 @@ else:
 	    for t in tsen:
 	        tgt.add_symbol(task.tgt_dict[t])
 
-        
+	    
 	for i in range(args.num_sentences):
 		d = {}
 		d['id']=i
@@ -209,9 +164,7 @@ dummy.init_words(training_scheme[0],train_data[:args.num_sentences],task)
 
 base_kwargs = {'recurrent': False, 'dummyenv': dummy, 'n_proc': args.num_processes}
 actor_critic = Policy(envs.observation_space.shape, envs.action_space, 'Attn', base_kwargs)
-# if args.use_wandb:
-#     wandb.watch(actor_critic)
-# actor_critic = nn.DataParallel(actor_critic)
+
 actor_critic.to(device)
 
 agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_size,
@@ -316,30 +269,21 @@ for epoch in range(args.n_epochs + 1):
 		eval_envs = VecPyTorch(eval_envs, 'cuda', task.source_dictionary.pad())
 		eval_episode_rewards = []
 
-		obs,tac = eval_envs.reset()
-		idx = tac[:,1]
-		tac = tac[:,0]
+		obs,_ = eval_envs.reset()
 
+		for i in range(10):
 
-		with torch.no_grad():
-			_,action,_,_ = actor_critic.act(obs, tac=None,deterministic=True)
+			with torch.no_grad():
+				_,action,_,_ = actor_critic.act(obs, tac=None,deterministic=True)
 
-		obs_new, reward, done, _ = eval_envs.step(action)
-		
-		for j in range(args.num_processes):
-			print('source sentence is',task.src_dict.string(obs[0][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
-			print('target sentence is',task.tgt_dict.string(obs[1][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
-			print('True action is',task.tgt_dict[int(tac[j])])
-			print('action predicted by the model is',task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
-			print('rewards are',reward[j])
-			print()
+			obs, reward, done, _ = eval_envs.step(action)
+			
+			rews = []
+			for j in range(len(done)):
+				if done[j]:
+					rews.append(reward.squeeze(1).cpu().numpy().tolist()[j])
 
-		obs = obs_new
-
-		masks = torch.FloatTensor([[0.0] if done_ else [1.0]
-								   for done_ in done])
-
-		eval_episode_rewards.extend(reward.squeeze(1).cpu().numpy().tolist())
+			eval_episode_rewards.extend(rews)
 
 		eval_envs.close()
 
@@ -362,8 +306,6 @@ for epoch in range(args.n_epochs + 1):
 					   "Mean evaluation reward": eval_episode_rewards,
 					   "Best eval reward":eval_reward_best})
 
-		# if eval_episode_rewards == 1.0:
-		# 	exit("Eval reward is 1, training will stop")
 
 
 

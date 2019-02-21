@@ -33,29 +33,28 @@ class PPO():
 
 	def update(self, rollouts):
 		advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
-		advantages = (advantages - advantages.mean()) / (
-			advantages.std() + 1e-5)
+		advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
 
 		value_loss_epoch = 0
 		action_loss_epoch = 0
 		dist_entropy_epoch = 0
+		total_loss_epoch = 0
 
-		if self.actor_critic.is_recurrent:
-			data_generator = rollouts.recurrent_generator(
-				advantages, self.num_mini_batch)
-		else:
-			# data_generator = rollouts.feed_forward_generator(
-			# 	advantages, self.num_mini_batch)
-			data = rollouts.feed_forward_generator(advantages, self.batch_size)
 		for e in range(self.ppo_epoch):
+			if self.actor_critic.is_recurrent:
+				data_generator = rollouts.recurrent_generator(
+					advantages, self.num_mini_batch)
+			else:
 
-			obs_batch, actions_batch, \
-			   value_preds_batch, return_batch, old_action_log_probs_batch, \
-					adv_targ = data
+				data = rollouts.feed_forward_generator(advantages, self.batch_size)
 
+				obs_batch, actions_batch, \
+				   value_preds_batch, return_batch, old_action_log_probs_batch, \
+						adv_targ = data
 
 			values, action_log_probs, dist_entropy = self.actor_critic.evaluate_actions(
 				obs_batch, actions_batch)
+
 			ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
 			surr1 = ratio * adv_targ
 			surr2 = torch.clamp(ratio, 1.0 - self.clip_param,
@@ -71,24 +70,18 @@ class PPO():
 			else:
 				value_loss = 0.5 * (return_batch - values).pow(2).mean()
 
-			print('action log probs are',action_log_probs)
-			print('advantages are',adv_targ)
-
 			self.optimizer.zero_grad()
-			
-			(value_loss * self.value_loss_coef + action_loss - dist_entropy * self.entropy_coef).backward()
-			# (value_loss * self.value_loss_coef + action_loss ).backward()
+			total_loss = (action_loss - dist_entropy * self.entropy_coef + value_loss*self.value_loss_coef)
 
+			total_loss.backward()
 
-			
-
-			nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
-									 self.max_grad_norm)
+			nn.utils.clip_grad_norm_(self.actor_critic.parameters(),self.max_grad_norm)
 			self.optimizer.step()
 
 			value_loss_epoch += value_loss.item()
 			action_loss_epoch += action_loss.item()
 			dist_entropy_epoch += dist_entropy.item()
+			total_loss_epoch += total_loss.item()
 
 
 		num_updates = self.ppo_epoch * self.batch_size
@@ -96,7 +89,8 @@ class PPO():
 		value_loss_epoch /= num_updates
 		action_loss_epoch /= num_updates
 		dist_entropy_epoch /= num_updates
+		total_loss_epoch /= num_updates
 
 
 
-		return value_loss_epoch, action_loss_epoch,dist_entropy_epoch
+		return value_loss_epoch, action_loss_epoch,dist_entropy_epoch,total_loss_epoch
