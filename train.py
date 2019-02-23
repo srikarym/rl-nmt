@@ -57,6 +57,8 @@ if args.use_wandb:
 	config.lr = args.lr
 	config.seed = args.seed
 	config.num_steps = args.num_steps
+	config.num_sentences = args.num_sentences
+	config.seed = args.seed
 	wandb.run.description = args.run_name
 	
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -182,7 +184,7 @@ if (args.sen_per_epoch == 0):
 else:
 	sen_per_epoch = args.sen_per_epoch
 
-rollouts = RolloutStorage(args.num_steps, 1, args.num_processes,
+rollouts = RolloutStorage(args.num_steps, args.num_processes,
 						  envs.observation_space.shape, envs.action_space)
 rollouts.to(device)
 print('Started training')
@@ -219,7 +221,7 @@ for epoch in range(args.n_epochs + 1):
 		envs = SubprocVecEnv(envs)
 		envs = VecPyTorch(envs, 'cuda', task.source_dictionary.pad())
 
-		rollouts = RolloutStorage(args.num_steps, 1, args.num_processes,
+		rollouts = RolloutStorage(args.num_steps,  args.num_processes,
 								  envs.observation_space.shape, envs.action_space)
 
 	for step in range(args.num_steps):
@@ -254,9 +256,6 @@ for epoch in range(args.n_epochs + 1):
 	total_loss_epoch += total_loss
 	mean_reward_epoch += np.mean(rewards)
 	ranks_epoch += np.mean(ranks_iter)
-
-	print('\n\nEpoch {} out of {}, Mean reward is {}'.format(epoch,args.n_epochs,mean_reward_epoch))
-
 
 
 

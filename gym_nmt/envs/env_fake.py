@@ -95,7 +95,7 @@ class NMTEnv_fake(gym.Env):
 
 	def get_reward(self,action):
 		
-		reward = -1
+		reward = 0
 		if (self.is_done(action)):
 			if self.n_missing_words == 1:
 				if self.generation[0] == self.target[-3] and self.generation[1] == self.task.target_dictionary.eos():

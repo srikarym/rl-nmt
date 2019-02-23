@@ -6,7 +6,7 @@ import sys
 
 email = "msy290@nyu.edu"
 directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
-run = "1w_eos"
+run = "1w_eos_dw"
 slurm_logs = os.path.join(directory, "slurm_logs",run)
 slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
@@ -40,7 +40,7 @@ def train(flags, jobname=None, time=24):
     slurmfile = os.path.join(slurm_scripts, jobnameattrs + '.slurm')
     with open(slurmfile, 'w') as f:
         f.write("#!/bin/bash\n")
-        f.write("#SBATCH --job-name" + "=" + jobname + "\n")
+        f.write("#SBATCH --job-name" + "=" + str(j["num-sentences"])+"-"+str(j["seed"]) + "\n")
         f.write("#SBATCH --output=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".out"))
         f.write("#SBATCH --error=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".err"))
         f.write("#SBATCH --qos=batch\n")
@@ -61,17 +61,17 @@ def train(flags, jobname=None, time=24):
 
 job = {
         "env-name":"nmt_fake-v0","n-epochs-per-word": 10000, "n-epochs": 10000,
-        "num-processes": 50, "ppo-batch-size" :800, "log-dir": logdir, "save-dir": savedir,
-        "save-interval":1000,"num-steps": 150,"sen_per_epoch": 1,"use-wandb":"","use-gae":"",
-	    "eval-interval":1,"reduced":""
+        "num-processes": 80, "ppo-batch-size" :1500, "log-dir": logdir, "save-dir": savedir,
+        "save-interval":1000,"num-steps": 150,"sen_per_epoch": 1,"use-wandb":"",
+	    "eval-interval":1,"reduced":"","entropy-coef":0.01,"use-gae":""
         }
 
-for seed in [1,2,3]:
+for seed in [4]:
     j = {k:v for k,v in job.items()}
     time = 48
     j["seed"] = seed
     old_save_dir = j["save-dir"]
-    for nsen in [10]:
+    for nsen in [10,50,100]:
         j["num-sentences"]=nsen
         run_name=run+"_nsen_{}_seed_{}".format(nsen,seed)
         j["save-dir"]=os.path.join(old_save_dir,str(nsen),run_name)

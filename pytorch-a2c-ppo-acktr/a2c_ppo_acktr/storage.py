@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 
 def _flatten_helper(_tensor):
     T,N = _tensor.size()[:2]
@@ -79,34 +80,39 @@ class RolloutStorage(object):
                 self.returns[step] = self.returns[step + 1] * \
                                      gamma * self.masks[step + 1] + self.rewards[step]
 
-    def feed_forward_generator(self, advantages, batch_size):
+    def feed_forward_generator(self, advantages, mini_batch_size):
+
 
 
         obs_s_flat = _flatten_helper(self.obs_s[:-1])
         obs_t_flat = _flatten_helper(self.obs_t[:-1])
 
-        total = obs_s_flat.shape[0]
-        arr = np.arange(total)
-        np.random.shuffle(arr)
-        indices = arr[:batch_size]
+        batch_size = obs_s_flat.shape[0]
 
+        sampler = BatchSampler(SubsetRandomSampler(range(batch_size)),mini_batch_size,drop_last = False)
 
-        obs_batch_s = obs_s_flat[indices]
-        obs_batch_t = obs_t_flat[indices]
+        # arr = np.arange(total)
+        # np.random.shuffle(arr)
+        # indices = arr[:batch_size]
 
-        actions_flat = self.actions.view(-1, 1)
-        value_preds_flat = self.value_preds[:-1].view(-1, 1)
-        returns_flat = self.returns[:-1].view(-1, 1)
-        action_log_probs_flat = self.action_log_probs.view(-1, 1)
-        advantages_flat = advantages.view(-1, 1)
+        for indices in sampler:
 
-        actions_batch = actions_flat[indices]
-        value_preds_batch = value_preds_flat[indices]
-        return_batch = returns_flat[indices]
-        old_action_log_probs_batch = action_log_probs_flat[indices]
-        adv_targ = advantages_flat[indices]
+            obs_batch_s = obs_s_flat[indices]
+            obs_batch_t = obs_t_flat[indices]
 
-        return (obs_batch_s, obs_batch_t), actions_batch, \
-               value_preds_batch, return_batch, old_action_log_probs_batch, adv_targ
+            actions_flat = self.actions.view(-1, 1)
+            value_preds_flat = self.value_preds[:-1].view(-1, 1)
+            returns_flat = self.returns[:-1].view(-1, 1)
+            action_log_probs_flat = self.action_log_probs.view(-1, 1)
+            advantages_flat = advantages.view(-1, 1)
+
+            actions_batch = actions_flat[indices]
+            value_preds_batch = value_preds_flat[indices]
+            return_batch = returns_flat[indices]
+            old_action_log_probs_batch = action_log_probs_flat[indices]
+            adv_targ = advantages_flat[indices]
+
+            yield (obs_batch_s, obs_batch_t), actions_batch, \
+                   value_preds_batch, return_batch, old_action_log_probs_batch, adv_targ
 
 
