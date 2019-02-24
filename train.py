@@ -90,15 +90,15 @@ if (args.reduced):
 	data = []
 
 	for i in range(args.num_sentences):
-	    ssen = train_data[i]['net_input']['src_tokens'][0].numpy().tolist()
-	    tsen = train_data[i]['target'][0].numpy().tolist()
-	    
-	    for s in ssen:
-	        src.add_symbol(task.src_dict[s])
-	    for t in tsen:
-	        tgt.add_symbol(task.tgt_dict[t])
+		ssen = train_data[i]['net_input']['src_tokens'][0].numpy().tolist()
+		tsen = train_data[i]['target'][0].numpy().tolist()
+		
+		for s in ssen:
+			src.add_symbol(task.src_dict[s])
+		for t in tsen:
+			tgt.add_symbol(task.tgt_dict[t])
 
-	    
+		
 	for i in range(args.num_sentences):
 		d = {}
 		d['id']=i
@@ -276,13 +276,24 @@ for epoch in range(args.n_epochs + 1):
 
 		obs,_ = eval_envs.reset()
 
-		for i in range(10):
+		for i in range(2*n_missing_words+1):
 
 			with torch.no_grad():
 				_,action,_,_ = actor_critic.act(obs, tac=None,deterministic=True)
 
-			obs, reward, done, _ = eval_envs.step(action)
+			obs_new, reward, done, _ = eval_envs.step(action)
 			
+			for j in range(args.num_processes):
+				print('source sentence is',task.src_dict.string(obs[0][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
+				print('target sentence is',task.tgt_dict.string(obs[1][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
+				print('True action is',task.tgt_dict[int(tac[j])])
+				print('action predicted by the model is',task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
+				print('rewards are',reward[j])
+				print()
+
+			obs = obs_new
+
+
 			rews = []
 			for j in range(len(done)):
 				if done[j]:

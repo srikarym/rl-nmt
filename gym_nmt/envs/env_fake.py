@@ -26,6 +26,7 @@ class NMTEnv_fake(gym.Env):
 		self.action = None
 		self.observation = np.ones((2, self.max_len))
 		self.missing_target = None
+		self.tac = None
 
 	def init_words(self, n_missing_words,train_data,task):
 		self.task = task
@@ -88,7 +89,7 @@ class NMTEnv_fake(gym.Env):
 
 	def take_action(self,action):
 		# print('action to take is',action)
-		self.previous.append(int(action))
+		self.previous.append(self.get_tac())
 		self.generation.append(int(action))
 		self.steps_done = self.steps_done+1
 			

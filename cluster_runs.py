@@ -6,7 +6,7 @@ import sys
 
 email = "msy290@nyu.edu"
 directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
-run = "week4_2words_nodw"
+run = "week5_2words"
 slurm_logs = os.path.join(directory, "slurm_logs",run)
 slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
@@ -62,7 +62,7 @@ job = {
         "env-name":"nmt_fake-v0","n-epochs-per-word": 500, "n-epochs": 2000,
         "num-processes": 100, "ppo-batch-size" :1500, "log-dir": logdir, "save-dir": savedir,
         "save-interval":1000,"num-steps": 150,"sen_per_epoch": 1,"use-wandb":"",
-	    "eval-interval":1,"reduced":"","entropy-coef":0.05,"use-gae":""
+	    "eval-interval":1,"reduced":"","entropy-coef":0.01,"use-gae":""
         }
 
 for seed in [1]:
@@ -70,8 +70,8 @@ for seed in [1]:
     time = 48
     j["seed"] = seed
     old_save_dir = j["save-dir"]
-    for lr in [7e-4,1e-3,7e-3]:
-        for nsen in [3,10,100]:
+    for lr in [7e-4,1e-3]:
+        for nsen in [3,10]:
             j["lr"]=lr
             j["num-sentences"]=nsen
             run_name=run+"_nsen_{}_seed_{}".format(nsen,seed)
