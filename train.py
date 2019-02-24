@@ -59,7 +59,8 @@ if args.use_wandb:
 	config.num_steps = args.num_steps
 	config.num_sentences = args.num_sentences
 	config.seed = args.seed
-	wandb.run.description = args.run_name
+	wandb.run.description = "{}sen_{}seed_{}lr".format(args.num_sentences,args.seed,args.lr)
+	wandb.run.save()
 	
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class AttrDict(dict):
@@ -195,7 +196,8 @@ rollouts.obs_s[0].copy_(obs[0])
 rollouts.obs_t[0].copy_(obs[1])
 
 eval_reward_best = -100
-
+n_missing_words = training_scheme[0]
+eval_episode_rewards = 0
 for epoch in range(args.n_epochs + 1):
 
 	value_loss_epoch = 0.0
@@ -208,21 +210,28 @@ for epoch in range(args.n_epochs + 1):
 
 	start = time.time()
 
-	n_missing_words = training_scheme[epoch]
-
 	rewards = []
 	ranks_iter = []
 
-	# log = deepcopy(log_dict)
 
-	if epoch % args.n_epochs_per_word == 0 and epoch != 0:
-		envs = [make_env(env_id=args.env_name, n_missing_words=n_missing_words)
+	if (epoch % args.n_epochs_per_word == 0 and epoch != 0) or eval_episode_rewards>0.96:
+		n_missing_words+=1
+		print('Num of missing words is',n_missing_words)
+		envs.close()
+		envs = [make_env(args.env_name, n_missing_words,args.seed+i)
 				for i in range(args.num_processes)]
 		envs = SubprocVecEnv(envs)
 		envs = VecPyTorch(envs, 'cuda', task.source_dictionary.pad())
 
 		rollouts = RolloutStorage(args.num_steps,  args.num_processes,
 								  envs.observation_space.shape, envs.action_space)
+		rollouts.to(device)
+
+		obs, tac = envs.reset()
+		idx = tac[:,1]
+		tac = tac[:,0]
+		rollouts.obs_s[0].copy_(obs[0])
+		rollouts.obs_t[0].copy_(obs[1])
 
 	for step in range(args.num_steps):
 
@@ -248,7 +257,6 @@ for epoch in range(args.n_epochs + 1):
 	value_loss, action_loss, dist_entropy,total_loss = agent.update(rollouts)
 	rollouts.after_update()
 	end = time.time()
-	total_steps = args.num_steps * args.num_processes * (1)
 
 	value_loss_epoch += value_loss
 	action_loss_epoch += action_loss
@@ -257,13 +265,11 @@ for epoch in range(args.n_epochs + 1):
 	mean_reward_epoch += np.mean(rewards)
 	ranks_epoch += np.mean(ranks_iter)
 
-
-
 	if epoch % args.save_interval == 0 and epoch != 0:
 		checkpoint(epoch)
 
 	if (args.eval_interval is not None and epoch%args.eval_interval == 0):
-		eval_envs = [make_env(args.env_name, training_scheme[0],args.seed+i) for i in range(args.num_processes)]
+		eval_envs = [make_env(args.env_name, n_missing_words,args.seed+i) for i in range(args.num_processes)]
 		eval_envs = SubprocVecEnv(eval_envs)
 		eval_envs = VecPyTorch(eval_envs, 'cuda', task.source_dictionary.pad())
 		eval_episode_rewards = []
@@ -303,7 +309,8 @@ for epoch in range(args.n_epochs + 1):
 					   "Mean rank": ranks_epoch,
 					   "Total loss": total_loss_epoch ,
 					   "Mean evaluation reward": eval_episode_rewards,
-					   "Best eval reward":eval_reward_best})
+					   "Best eval reward":eval_reward_best,
+					   "Num of missing words":n_missing_words})
 
 
 

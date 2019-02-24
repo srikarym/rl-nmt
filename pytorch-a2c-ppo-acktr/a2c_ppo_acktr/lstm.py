@@ -172,10 +172,10 @@ class LSTMDecoder(FairseqIncrementalDecoder):
         # project back to size of vocabulary
         if self.adaptive_softmax is None:
             if hasattr(self, 'additional_fc'):
-                x = self.additional_fc(x)
-                x = F.dropout(x, p=self.dropout_out, training=self.training)
+                out = self.additional_fc(x)
+                out = F.dropout(out, p=self.dropout_out, training=self.training)
             if self.share_input_output_embed:
-                x = F.linear(x, self.embed_tokens.weight)
+                out = F.linear(x, self.embed_tokens.weight)
             else:
                 out = self.fc_out(x)
                 # x = self.fc_out(x)
