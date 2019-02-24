@@ -72,14 +72,14 @@ class NMTEnv_fake(gym.Env):
 		self.source = training_pair['net_input']['src_tokens'].numpy().tolist()[0]
 		self.target = training_pair['target'].numpy().tolist()[0]
 		self.generation = []
-		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-2:]) #should be -1 to include fullstop
+		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-1:]) #should be -1 to include fullstop
 		self.steps_done = 0
 		self.index = training_pair['id']
 
-		if len(self.target)- 1<= self.n_missing_words:
+		if len(self.target) - 1 <= self.n_missing_words:
 			self.previous = [self.task.target_dictionary.eos()]
 		else:
-			self.previous = training_pair['net_input']['prev_output_tokens'].numpy().tolist()[0][:-1*self.n_missing_words-1] #remove -1 
+			self.previous = training_pair['net_input']['prev_output_tokens'].numpy().tolist()[0][:-1*self.n_missing_words] #remove -1 
 		return np.array([self.source,self.previous]),(self.missing_target[self.steps_done],self.index)  
 
 
@@ -97,13 +97,18 @@ class NMTEnv_fake(gym.Env):
 		
 		reward = 0
 		if (self.is_done(action)):
-			if self.n_missing_words == 1:
-				if self.generation[0] == self.target[-3] and self.generation[1] == self.task.target_dictionary.eos():
-					reward = 1
-			elif self.n_missing_words == 2:
-				if self.generation[0] == self.target[-3] and self.generation[1] == self.target[-4]\
-				 and self.generation[2] == self.task.target_dictionary.eos():
-					reward = 1              
+
+			if self.generation == self.missing_target:
+				reward = 1
+
+			# if self.n_missing_words == 1:
+			# 	if self.generation[0] == self.target[-2] and self.generation[1] == self.task.target_dictionary.eos():
+			# 		reward = 1
+			# elif self.n_missing_words == 2:
+			# 	if self.generation[0] == self.target[-2] and self.generation[1] == self.target[-3]\
+			# 	 and self.generation[2] == self.task.target_dictionary.eos():
+			# 		reward = 1
+			# elif self.n_missing_words == 3:
 
 		return reward
 
