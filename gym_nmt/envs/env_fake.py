@@ -98,7 +98,7 @@ class NMTEnv_fake(gym.Env):
 		
 		reward = 0
 
-		if (self.steps_done <= self.n_missing_words + 1)
+		if (self.steps_done <= self.n_missing_words + 1):
 			if self.generation == self.missing_target[:self.steps_done]:
 				reward = len(self.generation)/(self.n_missing_words + 1)
 
