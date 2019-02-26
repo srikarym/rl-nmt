@@ -29,7 +29,6 @@ class RolloutStorage(object):
 			self.actions = self.actions.long()
 		self.masks = torch.ones(num_steps + 1, num_processes, 1)
 
-
 		self.step = 0
 		self.roll = 0
 
@@ -83,7 +82,6 @@ class RolloutStorage(object):
 	def feed_forward_generator(self, advantages, mini_batch_size):
 
 
-
 		obs_s_flat = _flatten_helper(self.obs_s[:-1])
 		obs_t_flat = _flatten_helper(self.obs_t[:-1])
 
@@ -91,9 +89,6 @@ class RolloutStorage(object):
 
 		sampler = BatchSampler(SubsetRandomSampler(range(batch_size)),mini_batch_size,drop_last = False)
 
-		# arr = np.arange(total)
-		# np.random.shuffle(arr)
-		# indices = arr[:batch_size]
 		actions_flat = self.actions.view(-1, 1)
 		value_preds_flat = self.value_preds[:-1].view(-1, 1)
 		returns_flat = self.returns[:-1].view(-1, 1)

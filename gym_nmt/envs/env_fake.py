@@ -97,19 +97,15 @@ class NMTEnv_fake(gym.Env):
 	def get_reward(self,action):
 		
 		reward = 0
-		if (self.is_done(action)):
 
-			if self.generation == self.missing_target:
-				reward = 1
+		if (self.steps_done <= self.n_missing_words + 1)
+			if self.generation == self.missing_target[:self.steps_done]:
+				reward = len(self.generation)/(self.n_missing_words + 1)
 
-			# if self.n_missing_words == 1:
-			# 	if self.generation[0] == self.target[-2] and self.generation[1] == self.task.target_dictionary.eos():
-			# 		reward = 1
-			# elif self.n_missing_words == 2:
-			# 	if self.generation[0] == self.target[-2] and self.generation[1] == self.target[-3]\
-			# 	 and self.generation[2] == self.task.target_dictionary.eos():
-			# 		reward = 1
-			# elif self.n_missing_words == 3:
+		# if (self.is_done(action)):
+
+		# 	if self.generation == self.missing_target:
+		# 		reward = 1
 
 		return reward
 

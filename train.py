@@ -269,30 +269,32 @@ for epoch in range(args.n_epochs + 1):
 		checkpoint(epoch)
 
 	if (args.eval_interval is not None and epoch%args.eval_interval == 0):
-		eval_envs = [make_env(args.env_name, n_missing_words,args.seed+i) for i in range(args.num_processes)]
+		eval_envs = [make_env(args.env_name, n_missing_words,args.seed+i) for i in range(3*args.num_sentences)]
 		eval_envs = SubprocVecEnv(eval_envs)
 		eval_envs = VecPyTorch(eval_envs, 'cuda', task.source_dictionary.pad())
 		eval_episode_rewards = []
 
-		obs,_ = eval_envs.reset()
+		obs,info = eval_envs.reset()
+
 
 		for i in range(2*n_missing_words+1):
 
 			with torch.no_grad():
 				_,action,_,_ = actor_critic.act(obs, tac=None,deterministic=True)
 
-			obs_new, reward, done, _ = eval_envs.step(action)
+			obs_new, reward, done, info_new = eval_envs.step(action)
 			
-			for j in range(args.num_processes):
+			
+			for j in range(3*args.num_sentences):
 				print('source sentence is',task.src_dict.string(obs[0][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
 				print('target sentence is',task.tgt_dict.string(obs[1][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
-				print('True action is',task.tgt_dict[int(tac[j])])
+				print('True action is',task.tgt_dict[int(info[:,0][j])])
 				print('action predicted by the model is',task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
 				print('rewards are',reward[j])
 				print()
 
 			obs = obs_new
-
+			info = info_new
 
 			rews = []
 			for j in range(len(done)):
