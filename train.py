@@ -180,10 +180,10 @@ if (args.checkpoint):
 	actor_critic.load_state_dict(state['state_dict'])
 	agent.optimizer.load_state_dict(state['optimizer'])
 
-if (args.sen_per_epoch == 0):
-	sen_per_epoch = len_train_data // (args.num_steps * args.num_processes)
-else:
-	sen_per_epoch = args.sen_per_epoch
+# if (args.sen_per_epoch == 0):
+# 	sen_per_epoch = len_train_data // (args.num_steps * args.num_processes)
+# else:
+# 	sen_per_epoch = args.sen_per_epoch
 
 rollouts = RolloutStorage(args.num_steps, args.num_processes,
 						  envs.observation_space.shape, envs.action_space)
@@ -214,7 +214,7 @@ for epoch in range(args.n_epochs + 1):
 	ranks_iter = []
 
 
-	if (epoch % args.n_epochs_per_word == 0 and epoch != 0) or eval_episode_rewards>0.96:
+	if  eval_episode_rewards == 1.0:
 		n_missing_words+=1
 		print('Num of missing words is',n_missing_words)
 		envs.close()
@@ -269,7 +269,7 @@ for epoch in range(args.n_epochs + 1):
 		checkpoint(epoch)
 
 	if (args.eval_interval is not None and epoch%args.eval_interval == 0):
-		eval_envs = [make_env(args.env_name, n_missing_words,args.seed+i) for i in range(3*args.num_sentences)]
+		eval_envs = [make_env(args.env_name, n_missing_words,args.seed+i) for i in range(10)]
 		eval_envs = SubprocVecEnv(eval_envs)
 		eval_envs = VecPyTorch(eval_envs, 'cuda', task.source_dictionary.pad())
 		eval_episode_rewards = []
@@ -277,15 +277,16 @@ for epoch in range(args.n_epochs + 1):
 		obs,info = eval_envs.reset()
 
 
-		for i in range(2*n_missing_words+1):
+		for i in range((n_missing_words+1)*args.num_sentences):
 
 			with torch.no_grad():
 				_,action,_,_ = actor_critic.act(obs, tac=None,deterministic=True)
 
 			obs_new, reward, done, info_new = eval_envs.step(action)
 			
+			print('Evaluation interaction {}, ')
 			
-			for j in range(3*args.num_sentences):
+			for j in range(10):
 				print('source sentence is',task.src_dict.string(obs[0][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
 				print('target sentence is',task.tgt_dict.string(obs[1][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
 				print('True action is',task.tgt_dict[int(info[:,0][j])])
@@ -305,12 +306,12 @@ for epoch in range(args.n_epochs + 1):
 
 		eval_envs.close()
 
-		print(" Evaluation using {} episodes: mean reward {:.5f}\n".
-			format(len(eval_episode_rewards),
+		print(" Epoch, {} Evaluation using {} episodes: mean reward {:.5f}\n".
+			format(epoch,len(eval_episode_rewards),
 				   np.mean(eval_episode_rewards)))
 		eval_episode_rewards = np.mean(eval_episode_rewards)
 
-		if eval_episode_rewards > eval_reward_best:
+		if eval_episode_rewards >= eval_reward_best:
 			eval_reward_best = eval_episode_rewards
 			checkpoint(epoch,"best")
 

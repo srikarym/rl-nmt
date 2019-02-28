@@ -55,13 +55,13 @@ class NMTEnv_fake(gym.Env):
 
 	def get_tac(self): #Returns true action for calculating rank
 		if (self.steps_done>=len(self.missing_target)):
-			tac = self.task.target_dictionary.eos()
+			tac = self.task.target_dictionary.pad()
 		else:
 			tac = self.missing_target[self.steps_done]
 		return tac
 
 	def is_done(self,action):     
-		if action == self.task.target_dictionary.eos() or len(self.generation) == 2*self.n_missing_words+1:
+		if action == self.task.target_dictionary.eos() or len(self.generation) == self.n_missing_words+1:
 			return True
 		return False
 

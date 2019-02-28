@@ -72,9 +72,9 @@ class PPO():
 				self.optimizer.zero_grad()
 
 
-				total_loss = (action_loss - dist_entropy * self.entropy_coef + value_loss*self.value_loss_coef)
-				# vl_sm = torch.nn.Softmax(dim=0)(value_loss)
-				# total_loss = (action_loss - dist_entropy * self.entropy_coef)*vl_sm
+				# total_loss = (action_loss - dist_entropy * self.entropy_coef + value_loss*self.value_loss_coef)
+				vl_sm = torch.nn.Softmax(dim=0)(value_loss)
+				total_loss = (action_loss - dist_entropy * self.entropy_coef)*vl_sm
 
 				total_loss.backward()
 

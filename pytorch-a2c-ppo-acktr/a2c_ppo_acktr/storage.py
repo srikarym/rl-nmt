@@ -61,7 +61,6 @@ class RolloutStorage(object):
 	def after_update(self):
 		self.obs_s[0].copy_(self.obs_s[-1])
 		self.obs_t[0].copy_(self.obs_t[-1])
-
 		self.masks[0].copy_(self.masks[-1])
 
 	def compute_returns(self, next_value, use_gae, gamma, tau):

@@ -6,7 +6,7 @@ import sys
 
 email = "msy290@nyu.edu"
 directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
-run = "week5_2words"
+run = "week5_denrew_dw"
 slurm_logs = os.path.join(directory, "slurm_logs",run)
 slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
@@ -70,8 +70,8 @@ for seed in [1]:
     time = 48
     j["seed"] = seed
     old_save_dir = j["save-dir"]
-    for lr in [7e-4,1e-3]:
-        for nsen in [3,10]:
+    for lr in [7e-4]:
+        for nsen in [3,5,10]:
             j["lr"]=lr
             j["num-sentences"]=nsen
             run_name=run+"_nsen_{}_seed_{}".format(nsen,seed)
