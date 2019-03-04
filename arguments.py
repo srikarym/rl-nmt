@@ -73,7 +73,7 @@ def get_args():
                         help='Num of sentences to train, set this to -1 to use entire data')
     
     parser.add_argument('--file-path', default='log/new-exp/',
-                        help='directory to load trained models (default: /log/new-exp)')
+                        help='path of trained model (default: /log/new-exp)')
 
     parser.add_argument('--wandb-name', default='new-exp/',
                         help='Project name in weights and bias (default: new-exp/)')

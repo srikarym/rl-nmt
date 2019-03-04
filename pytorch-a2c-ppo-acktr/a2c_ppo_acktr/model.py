@@ -99,14 +99,6 @@ class NNBase(nn.Module):
         self._hidden_size = hidden_size
         self._recurrent = recurrent
 
-        if recurrent:
-            self.gru = nn.GRU(recurrent_input_size, hidden_size).to(device)
-            for name, param in self.gru.named_parameters():
-                if 'bias' in name:
-                    nn.init.constant_(param, 0)
-                elif 'weight' in name:
-                    nn.init.orthogonal_(param)
-            torch.nn.utils.clip_grad_norm_(self.gru.parameters(), 0.25)
 
     @property
     def is_recurrent(self):
@@ -184,8 +176,7 @@ class AttnBase(NNBase):
 
         m = torch.nn.Softmax(dim=-1)
         sm = m(outs)
-        # if self.is_recurrent:
-        #   outs, rnn_hxs = self._forward_gru(outs, rnn_hxs, masks)
+
 
         if tac is None:
             return self.critic_linear(hidden), sm, None
@@ -198,10 +189,8 @@ class AttnBase(NNBase):
 
             ranks = []
             for i in range(t.shape[0]):
-                # print(np.nonzero(sm_np[i] == probs[i]))
                 for j in range(sm_np[0].shape[0]):
                     if sm_np[i][j] == probs[i]:
-                        a = True
                         break
                 ranks.append(sm_np[0].shape[0] - j)
 

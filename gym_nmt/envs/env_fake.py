@@ -31,7 +31,7 @@ class NMTEnv_fake(gym.Env):
 	def init_words(self, n_missing_words,train_data,task):
 		self.task = task
 		self.train_data = train_data
-		self.n_missing_words = n_missing_words
+		self.n_missing_words_old = n_missing_words
 		self.n_vocab = len(task.target_dictionary)
 		self.action = spaces.Discrete(self.n_vocab)
 
@@ -61,7 +61,7 @@ class NMTEnv_fake(gym.Env):
 		return tac
 
 	def is_done(self,action):     
-		if action == self.task.target_dictionary.eos() or len(self.generation) == self.n_missing_words+1:
+		if action == self.task.target_dictionary.eos() or len(self.generation) == 2*self.n_missing_words+1:
 			return True
 		return False
 
@@ -73,14 +73,17 @@ class NMTEnv_fake(gym.Env):
 		self.source = training_pair['net_input']['src_tokens'].numpy().tolist()[0]
 		self.target = training_pair['target'].numpy().tolist()[0]
 		self.generation = []
-		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-1:]) #should be -1 to include fullstop
 		self.steps_done = 0
 		self.index = training_pair['id']
+		self.previous = training_pair['net_input']['prev_output_tokens'].numpy().tolist()[0]
 
-		if len(self.target) - 1 <= self.n_missing_words:
-			self.previous = [self.task.target_dictionary.eos()]
+		if self.n_missing_words_old > len(self.previous) - 1:
+			self.n_missing_words = len(self.previous) -1
 		else:
-			self.previous = training_pair['net_input']['prev_output_tokens'].numpy().tolist()[0][:-1*self.n_missing_words] #remove -1 
+			self.n_missing_words = self.n_missing_words_old
+		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-1:]) 
+
+		self.previous = self.previous[:-1*self.n_missing_words] 
 		return np.array([self.source,self.previous]),(self.missing_target[self.steps_done],self.index)  
 
 
@@ -102,10 +105,6 @@ class NMTEnv_fake(gym.Env):
 			if self.generation == self.missing_target[:self.steps_done]:
 				reward = len(self.generation)/(self.n_missing_words + 1)
 
-		# if (self.is_done(action)):
-
-		# 	if self.generation == self.missing_target:
-		# 		reward = 1
 
 		return reward
 

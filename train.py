@@ -59,7 +59,7 @@ if args.use_wandb:
 	config.num_steps = args.num_steps
 	config.num_sentences = args.num_sentences
 	config.seed = args.seed
-	wandb.run.description = "{}sen_{}seed_{}lr".format(args.num_sentences,args.seed,args.lr)
+	wandb.run.description = args.run_name
 	wandb.run.save()
 	
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -197,6 +197,7 @@ rollouts.obs_t[0].copy_(obs[1])
 
 eval_reward_best = -100
 n_missing_words = training_scheme[0]
+# n_missing_words = 10
 eval_episode_rewards = 0
 for epoch in range(args.n_epochs + 1):
 
@@ -216,6 +217,7 @@ for epoch in range(args.n_epochs + 1):
 
 	if  eval_episode_rewards == 1.0:
 		n_missing_words+=1
+		eval_reward_best = 0
 		print('Num of missing words is',n_missing_words)
 		envs.close()
 		envs = [make_env(args.env_name, n_missing_words,args.seed+i)
@@ -284,7 +286,6 @@ for epoch in range(args.n_epochs + 1):
 
 			obs_new, reward, done, info_new = eval_envs.step(action)
 			
-			print('Evaluation interaction {}, ')
 			
 			for j in range(10):
 				print('source sentence is',task.src_dict.string(obs[0][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
@@ -313,7 +314,7 @@ for epoch in range(args.n_epochs + 1):
 
 		if eval_episode_rewards >= eval_reward_best:
 			eval_reward_best = eval_episode_rewards
-			checkpoint(epoch,"best")
+			checkpoint(epoch,"best"+"words"+str(n_missing_words))
 
 		if args.use_wandb:
 			wandb.log({"Value loss ": value_loss_epoch ,
