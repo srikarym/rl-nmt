@@ -6,7 +6,7 @@ import sys
 
 email = "msy290@nyu.edu"
 directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
-run = "week5"
+run = "week5_better_logs"
 slurm_logs = os.path.join(directory, "slurm_logs",run)
 slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
@@ -40,7 +40,7 @@ def train(flags, jobname=None, time=24):
     slurmfile = os.path.join(slurm_scripts, jobnameattrs + '.slurm')
     with open(slurmfile, 'w') as f:
         f.write("#!/bin/bash\n")
-        f.write("#SBATCH --job-name" + "=" + str(j["num-sentences"])+"-"+str(j["seed"]) + str(j["num-steps"]) + "\n")
+        f.write("#SBATCH --job-name" + "=" + str(j["num-sentences"])+"-"+str(j["seed"]) + "\n")
         f.write("#SBATCH --output=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".out"))
         f.write("#SBATCH --qos=batch\n")
         f.write("#SBATCH --mail-type=END,FAIL\n")
@@ -65,8 +65,8 @@ job = {
 	    "eval-interval":1,"entropy-coef":0.05,"use-gae":"","reduced":""
         }
 
-for seed in [1,2]:
-    for nsen in [3,10,100]:
+for seed in [1,2,3]:
+    for nsen in [3,10]:
         j = {k:v for k,v in job.items()}
         time = 48
         j["seed"] = seed

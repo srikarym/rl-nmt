@@ -22,7 +22,7 @@ class logger():
 			print('Reward: ',reward[j])
 			print()
 
-			if reward[j].cpu().numpy().tolist()[0] != 0:
+			if int(info[:,0][j]) == int(action[j].cpu().numpy()[0].tolist()):
 				self.success[j] += 1
 				self.rows[j].append("T")
 			else:
