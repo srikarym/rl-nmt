@@ -193,5 +193,5 @@ for epoch in range(args.n_epochs + 1):
 			eval_reward_best = eval_episode_rewards
 			checkpoint(epoch,"best")
 
-		log.to_wandb(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch\
+		log.to_wandb(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
 			ranks_epoch,total_loss_epoch,eval_episode_rewards,eval_reward_best)
