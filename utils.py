@@ -1,51 +1,67 @@
-import gym
-import gym_nmt
-import torch
-from baselines.common.vec_env import VecEnvWrapper
-import torch.nn as nn
 import torch
 import numpy as np
 
 
-class VecPyTorch(VecEnvWrapper):
-	def __init__(self, venv, device,pad):
-		"""Return only every `skip`-th frame"""
-		super(VecPyTorch, self).__init__(venv)
-		self.device = device
-		self.pad_val = pad
+class logger():
+
+	def __init__(self,num_sentences,task):
+		self.num_sentences = num_sentences
+		self.task = task
+		self.success = {i:0 for i in range(num_sentences)}
+		self.rows = [[] for i in range(num_sentences)]
+		self.eval_episode_rewards = []
+
+	def print_stuff(self,i,obs,action,reward,info):
+
+		for j in range(self.num_sentences):
+			print('Sentence {}, step {}'.format(j,i))
+			print('Source sentence: ',task.src_dict.string(obs[0][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
+			print('Target sentence: ',task.tgt_dict.string(obs[1][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
+			print('True action:',task.tgt_dict[int(info[:,0][j])])
+			print('action predicted by the model: ',task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
+			print('Reward: ',reward[j])
+			print()
+
+			if reward[j].cpu().numpy().tolist()[0] != 0:
+				self.success[j] += 1
+				self.rows[j].append("T")
+			else:
+				self.rows[j].append("F")
+
+	def append_rewards(self,done):
+
+		rews = []
+		for j in range(len(done)):
+			if done[j]:
+				rews.append(reward.squeeze(1).cpu().numpy().tolist()[j])
+
+		self.eval_episode_rewards.extend(rews)
+
+	def get_stuff(self):
+		return (self.success,self.rows)
+
+	def get_reward(self):
+		return np.mean(self.eval_episode_rewards)
+
+	def to_wandb(self,epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch\
+			ranks_epoch,total_loss_epoch,rewards,eval_reward_best):
+		for i in range(self.num_sentences):
+			wandb.log({"Words_per_sen/Sentence_"+str(i):self.success[i]},step = epoch)
 
 
-	def pad(self,obs):
-		obs = list(map(list, zip(*obs)))
-		source = obs[0]
-		target = obs[1]
+		columns = ["word_"+str(i) for i in range(n_words+1)]
+		wandb.log({"Truth_table": wandb.Table(rows=self.rows, columns=columns),step = epoch})
 
-		# ms = len(source[0])
-		# mt = len(target[0])
-		max_size = 100
-		
-		sp = nn.utils.rnn.pad_sequence([torch.ones([max_size])] + [torch.tensor(s) for s in source] ,batch_first=True,padding_value=self.pad_val)
+		print(" Epoch, {} Evaluation using {} episodes: mean reward {:.5f}\n".\
+			format(epoch,len(self.eval_episode_rewards),rewards))
 
-		tp = nn.utils.rnn.pad_sequence([torch.ones([max_size])] + [torch.tensor(s) for s in target] ,batch_first=True,padding_value=self.pad_val)
-		return (sp[1:], tp[1:])
+		wandb.log({"Loss/Value_loss ": value_loss_epoch ,
+		   "Loss/Action_loss": action_loss_epoch ,
+		   "Loss/Dist_entropy": dist_entropy_epoch ,
+		   "Rewards/Mean_reward": mean_reward_epoch ,
+		   "Misc/Mean_rank": ranks_epoch,
+		   "Loss/Total_loss": total_loss_epoch ,
+		   "Rewards/Mean_evaluation_reward": rewards,
+		   "Rewards/Best_eval_reward":eval_reward_best,
+		   "Misc/Missing_words":self.n_words},step = epoch)
 
-	def reset(self):
-		
-		obser = self.venv.reset()
-		obs = []
-		tac = []
-		for ob in obser:
-			obs.append(ob[0])
-			tac.append(ob[1])
-		return self.pad(obs),np.array(tac)
-
-
-	def step_async(self, actions):
-		actions = actions.squeeze(1).cpu().numpy()
-		self.venv.step_async(actions)
-
-	def step_wait(self):
-		obs, reward, done, tac = self.venv.step_wait()
-
-		reward = torch.from_numpy(reward).unsqueeze(dim=1).float()
-		return self.pad(obs), reward, done,np.array(tac)

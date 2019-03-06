@@ -6,7 +6,7 @@ import sys
 
 email = "msy290@nyu.edu"
 directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
-run = "week5_10sen"
+run = "week5"
 slurm_logs = os.path.join(directory, "slurm_logs",run)
 slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
@@ -59,24 +59,21 @@ def train(flags, jobname=None, time=24):
 
 
 job = {
-        "env-name":"nmt_fake-v0","n-epochs-per-word": 500, "n-epochs": 2000,
+        "env-name":"nmt_train-v0","n-epochs-per-word": 500, "n-epochs": 2000,
         "num-processes": 100, "ppo-batch-size" :1000, "log-dir": logdir, "save-dir": savedir,
         "save-interval":1000,"num-steps": 150,"sen_per_epoch": 1,"use-wandb":"",
 	    "eval-interval":1,"entropy-coef":0.05,"use-gae":"","reduced":""
         }
 
-for seed in [1,2,3]:
-    j = {k:v for k,v in job.items()}
-    time = 48
-    j["seed"] = seed
-    old_save_dir = j["save-dir"]
-    j["num-sentences"]=10
-    for lr in [7e-4,1e-3]:
-        for nsteps in [150,250,500]:
-            j["lr"]=lr
-            j["num-steps"]= nsteps
-            run_name=run+"_nsteps_{}_seed_{}".format(nsteps,seed)
-            j["save-dir"]=os.path.join(old_save_dir,str(nsteps),run_name,str(lr))
-            j["wandb-name"]=run
-            j["run-name"]= "seed_" + str(seed) + "_nsteps_" + str(nsteps) + "_lr_" + str(lr) 
-            train(j, jobname=run_name, time=time)
+for seed in [1,2]:
+    for nsen in [3,10,100]:
+        j = {k:v for k,v in job.items()}
+        time = 48
+        j["seed"] = seed
+        old_save_dir = j["save-dir"]
+        j["num-sentences"]=nsen
+        run_name=run+"_seed_{}_sen_{}".format(seed,nsen)
+        j["save-dir"]=os.path.join(old_save_dir,run_name)
+        j["wandb-name"]=run
+        j["run-name"]= "seed_" + str(seed) +"_sen_"+str(nsen)
+        train(j, jobname=run_name, time=time)

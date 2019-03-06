@@ -84,7 +84,7 @@ class NMTEnv_fake(gym.Env):
 		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-1:]) 
 
 		self.previous = self.previous[:-1*self.n_missing_words] 
-		return np.array([self.source,self.previous]),(self.missing_target[self.steps_done],self.index)  
+		return np.array([self.source,self.previous]),(self.missing_target[0],self.index)  
 
 
 	def _render(self, mode='human', close=False):
