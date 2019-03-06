@@ -11,7 +11,7 @@ from baselines.common.vec_env import CloudpickleWrapper
 import itertools
 
 
-def make_env(env_id, n_missing_words,seed,train_data=train_data,task = task):
+def make_env(env_id, n_missing_words,seed,train_data,task):
     def _thunk():
         env = gym.make(env_id)
         env.init_words(n_missing_words,train_data,task)

@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-
+import wandb
 
 class logger():
 
@@ -15,10 +15,10 @@ class logger():
 
 		for j in range(self.num_sentences):
 			print('Sentence {}, step {}'.format(j,i))
-			print('Source sentence: ',task.src_dict.string(obs[0][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
-			print('Target sentence: ',task.tgt_dict.string(obs[1][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
-			print('True action:',task.tgt_dict[int(info[:,0][j])])
-			print('action predicted by the model: ',task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
+			print('Source sentence: ',self.task.src_dict.string(obs[0][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
+			print('Target sentence: ',self.task.tgt_dict.string(obs[1][j].long(), bpe_symbol='@@ ').replace('@@ ','').replace('<pad>',''))
+			print('True action:',self.task.tgt_dict[int(info[:,0][j])])
+			print('action predicted by the model: ',self.task.tgt_dict[int(action[j].cpu().numpy()[0].tolist())])
 			print('Reward: ',reward[j])
 			print()
 
@@ -28,7 +28,7 @@ class logger():
 			else:
 				self.rows[j].append("F")
 
-	def append_rewards(self,done):
+	def append_rewards(self,done,reward):
 
 		rews = []
 		for j in range(len(done)):
@@ -43,14 +43,14 @@ class logger():
 	def get_reward(self):
 		return np.mean(self.eval_episode_rewards)
 
-	def to_wandb(self,epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch\
+	def to_wandb(self,epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
 			ranks_epoch,total_loss_epoch,rewards,eval_reward_best):
 		for i in range(self.num_sentences):
 			wandb.log({"Words_per_sen/Sentence_"+str(i):self.success[i]},step = epoch)
 
 
 		columns = ["word_"+str(i) for i in range(n_words+1)]
-		wandb.log({"Truth_table": wandb.Table(rows=self.rows, columns=columns),step = epoch})
+		wandb.log({"Truth_table": wandb.Table(rows=self.rows, columns=columns)},step = epoch)
 
 		print(" Epoch, {} Evaluation using {} episodes: mean reward {:.5f}\n".\
 			format(epoch,len(self.eval_episode_rewards),rewards))
@@ -63,5 +63,5 @@ class logger():
 		   "Loss/Total_loss": total_loss_epoch ,
 		   "Rewards/Mean_evaluation_reward": rewards,
 		   "Rewards/Best_eval_reward":eval_reward_best,
-		   "Misc/Missing_words":self.n_words},step = epoch)
+		   "Misc/Missing_words":n_words},step = epoch)
 

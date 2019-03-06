@@ -14,7 +14,7 @@ import itertools
 from copy import deepcopy
 
 
-class NMTEnv_fake(gym.Env):
+class NMTEnv_eval(gym.Env):
 	metadata = {'render.modes': ['human']}
 
 	max_len = 100
@@ -30,7 +30,7 @@ class NMTEnv_fake(gym.Env):
 
 	def init_words(self, n_missing_words,train_data,task):
 		self.task = task
-		self.data = data
+		self.train_data = train_data
 		self.n_missing_words_old = n_missing_words
 		self.n_vocab = len(task.target_dictionary)
 		self.action = spaces.Discrete(self.n_vocab)
@@ -61,14 +61,14 @@ class NMTEnv_fake(gym.Env):
 		return tac
 
 	def is_done(self,action):     
-		if action == self.task.target_dictionary.eos() or len(self.generation) == 2*self.n_missing_words+1:
+		if action == self.task.target_dictionary.eos() or len(self.generation) == self.n_missing_words+1:
 			return True
 		return False
 
 	def reset(self):
 
 		
-		training_pair = self.data
+		training_pair = self.train_data
 
 		self.source = training_pair['net_input']['src_tokens'].numpy().tolist()[0]
 		self.target = training_pair['target'].numpy().tolist()[0]

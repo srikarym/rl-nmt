@@ -14,7 +14,7 @@ import itertools
 from copy import deepcopy
 
 
-class NMTEnv_fake(gym.Env):
+class NMTEnv_train(gym.Env):
 	metadata = {'render.modes': ['human']}
 
 	max_len = 100

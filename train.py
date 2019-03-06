@@ -13,9 +13,10 @@ import torch.nn as nn
 os.environ['OMP_NUM_THREADS'] = '1'
 import string
 from sys import exit
-from dataloader import load_train_data
+from dataloader import load_train_data,AttrDict
 from env_utils import make_vec_envs, make_dummy
 from utils import logger
+import random
 
 args = get_args()
 
@@ -89,7 +90,7 @@ rollouts.obs_s[0].copy_(obs[0])
 rollouts.obs_t[0].copy_(obs[1])
 
 eval_reward_best = -100
-n_words = training_scheme[0]
+n_words = 1
 eval_episode_rewards = 0
 
 for epoch in range(args.n_epochs + 1):
@@ -169,7 +170,7 @@ for epoch in range(args.n_epochs + 1):
 
 		obs,info = eval_envs.reset()
 
-		log = logger(num_sentences,task)
+		log = logger(args.num_sentences,task)
 
 		for i in range(n_words+1):
 
@@ -178,12 +179,12 @@ for epoch in range(args.n_epochs + 1):
 
 			obs_new, reward, done, info_new = eval_envs.step(action)
 
-			rows,success = log.print_stuff(i,j,obs,action,reward,info)
+			log.print_stuff(i,obs,action,reward,info)
+			log.append_rewards(done,reward)
 
 			obs = obs_new
 			info = info_new
 
-			log.append_rewards(done)
 
 		eval_episode_rewards = log.get_reward()
 
