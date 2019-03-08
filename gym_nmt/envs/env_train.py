@@ -74,6 +74,7 @@ class NMTEnv_train(gym.Env):
 		self.target = training_pair['target'].numpy().tolist()[0]
 		self.generation = []
 		self.steps_done = 0
+		self.max_reward = 0
 		self.index = training_pair['id']
 		self.previous = training_pair['net_input']['prev_output_tokens'].numpy().tolist()[0]
 
@@ -102,9 +103,20 @@ class NMTEnv_train(gym.Env):
 		reward = 0
 
 		if (self.steps_done <= self.n_missing_words + 1):
-			if self.generation == self.missing_target[:self.steps_done]:
-				reward = len(self.generation)/(self.n_missing_words + 1)
+			if int(action) == self.missing_target[self.steps_done-1]:
 
+				reward = self.max_reward + 1/(self.n_missing_words + 1)
+				self.max_reward = reward
+
+			else:
+				reward = self.max_reward
+
+			# 	if self.generation == self.missing_target[:self.steps_done]:
+			# 		reward = len(self.generation)/(self.n_missing_words + 1)
+			# 		self.max_reward = max(self.max_reward,reward)
+
+			# else:
+			# 	reward = self.max_reward
 
 		return reward
 

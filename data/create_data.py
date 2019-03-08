@@ -35,5 +35,5 @@ epoch_itr = task.get_batch_iterator(
 )
 train_data = list(epoch_itr.next_epoch_itr())
 
-with open('parrot.pkl', 'wb') as f:
+with open('data.pkl', 'wb') as f:
 	pickle.dump(train_data, f)
