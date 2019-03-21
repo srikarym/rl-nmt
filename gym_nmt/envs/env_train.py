@@ -51,7 +51,10 @@ class NMTEnv_train(gym.Env):
 		episode_over = self.is_done(action)
 
 		tac = self.get_tac()
-		return np.array(ob), reward, episode_over, (tac,self.index)
+
+		new_word = False
+
+		return np.array(ob), reward, episode_over, (tac,new_word)
 
 	def get_tac(self): #Returns true action for calculating rank
 		if (self.steps_done>=len(self.missing_target)):
@@ -85,7 +88,9 @@ class NMTEnv_train(gym.Env):
 		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-1:]) 
 
 		self.previous = self.previous[:-1*self.n_missing_words] 
-		return np.array([self.source,self.previous]),(self.missing_target[0],self.index)  
+
+		new_word = True
+		return np.array([self.source,self.previous]),(self.missing_target[0],new_word)  
 
 
 	def _render(self, mode='human', close=False):
@@ -111,12 +116,6 @@ class NMTEnv_train(gym.Env):
 			else:
 				reward = self.max_reward
 
-			# 	if self.generation == self.missing_target[:self.steps_done]:
-			# 		reward = len(self.generation)/(self.n_missing_words + 1)
-			# 		self.max_reward = max(self.max_reward,reward)
-
-			# else:
-			# 	reward = self.max_reward
 
 		return reward
 

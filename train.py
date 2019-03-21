@@ -78,9 +78,9 @@ if (args.checkpoint): #Load from checkpoint
 # 	sen_per_epoch = len_train_data // (args.num_steps * args.num_processes)
 # else:
 # 	sen_per_epoch = args.sen_per_epoch
-
+ratio = 0.5
 rollouts = RolloutStorage(args.num_steps, args.num_processes,
-						  envs.observation_space.shape, envs.action_space)
+						  envs.observation_space.shape, envs.action_space,ratio,1)
 rollouts.to(device)
 print('Started training')
 obs, tac = envs.reset()
@@ -117,14 +117,15 @@ for epoch in range(args.n_epochs + 1):
 		envs = make_vec_envs(args.env_name,n_words,args.seed,train_data[:args.num_sentences],task,args.num_processes)
 
 		rollouts = RolloutStorage(args.num_steps,  args.num_processes,
-								  envs.observation_space.shape, envs.action_space)
+								  envs.observation_space.shape, envs.action_space,ratio,n_words)
 		rollouts.to(device)
 
-		obs, tac = envs.reset()
-		idx = tac[:,1]
-		tac = tac[:,0]
+		obs, info = envs.reset()
+		tac = info[:,0]
+		new_words = info[:,1]
 		rollouts.obs_s[0].copy_(obs[0])
 		rollouts.obs_t[0].copy_(obs[1])
+		rollouts.new_words[0] = new_words
 
 	for step in range(args.num_steps):
 
@@ -132,14 +133,15 @@ for epoch in range(args.n_epochs + 1):
 			value, action, action_log_prob, ranks = actor_critic.act((rollouts.obs_s[step],rollouts.obs_t[step]), tac)
 		ranks_iter.append(np.mean(ranks))
 
-		obs, reward, done, tac = envs.step(action)
+		obs, reward, done, info = envs.step(action)
 
-		tac = tac[:,0]
+		tac = info[:,0]
+		new_words = info[:,1]
 
 		masks = torch.FloatTensor([[0.0] if done_ else [1.0]
 								   for done_ in done])
 
-		rollouts.insert(obs,action, action_log_prob, value, reward, masks)
+		rollouts.insert(obs,action, action_log_prob, value, reward, masks, new_words)
 		rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
 
 	with torch.no_grad():

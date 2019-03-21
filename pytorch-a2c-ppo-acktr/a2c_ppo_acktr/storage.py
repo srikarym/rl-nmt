@@ -8,10 +8,12 @@ def _flatten_helper(_tensor):
 
 
 class RolloutStorage(object):
-	def __init__(self, num_steps, num_processes, obs_shape, action_space):
+	def __init__(self, num_steps, num_processes, obs_shape, action_space,ratio,n_words):
 		# self.obs = torch.zeros(num_steps + 1, num_processes, *obs_shape)
 		self.obs_s = torch.ones(num_steps+1,num_processes,100)
 		self.obs_t = torch.ones(num_steps+1,num_processes,100)
+
+		self.new_words = np.ones((num_steps+1,num_processes),dtype = bool)
 
 		self.num_processes = num_processes
 		self.num_steps = num_steps
@@ -29,8 +31,10 @@ class RolloutStorage(object):
 			self.actions = self.actions.long()
 		self.masks = torch.ones(num_steps + 1, num_processes, 1)
 
+		self.ratio = ratio
+		self.n_words = n_words
+
 		self.step = 0
-		self.roll = 0
 
 	def to(self, device):
 		# self.obs = self.obs.to(device)
@@ -45,7 +49,7 @@ class RolloutStorage(object):
 		self.masks = self.masks.to(device)
 		self.returns = self.returns.to(device)
 
-	def insert(self,obs, actions, action_log_probs, value_preds, rewards, masks):
+	def insert(self,obs, actions, action_log_probs, value_preds, rewards, masks,new_words):
 
 		self.obs_s[self.step + 1].copy_(obs[0])
 		self.obs_t[self.step+1].copy_(obs[1])
@@ -55,6 +59,8 @@ class RolloutStorage(object):
 		self.rewards[self.step].copy_(rewards)
 		self.masks[self.step+1].copy_(masks)
 
+		self.new_words[self.step+1] = new_words
+
 		self.step = (self.step + 1) % (self.num_steps)
 
 
@@ -62,6 +68,7 @@ class RolloutStorage(object):
 		self.obs_s[0].copy_(self.obs_s[-1])
 		self.obs_t[0].copy_(self.obs_t[-1])
 		self.masks[0].copy_(self.masks[-1])
+		self.new_words[0] = self.new_words[-1]
 
 	def compute_returns(self, next_value, use_gae, gamma, tau):
 		if use_gae:
@@ -84,9 +91,22 @@ class RolloutStorage(object):
 		obs_s_flat = _flatten_helper(self.obs_s[:-1])
 		obs_t_flat = _flatten_helper(self.obs_t[:-1])
 
-		batch_size = obs_s_flat.shape[0]
+		if self.n_words > 1:
 
-		sampler = BatchSampler(SubsetRandomSampler(range(batch_size)),mini_batch_size,drop_last = False)
+			nw = self.new_words[:-1].reshape(-1,1).squeeze(1)
+			ind_newword = np.where(nw == True)[0]
+			ind_old = np.where(nw == False)[0]
+			newwords_ratio = self.ratio
+			num_old = int(len(ind_newword)*newwords_ratio/(1-newwords_ratio))
+			ind_batch = np.concatenate((ind_newword ,np.random.choice(ind_old,num_old,False)))
+			sampler = BatchSampler(SubsetRandomSampler(ind_batch),mini_batch_size,drop_last = False)
+			# print('num of new words is',len(ind_newword))
+			# print('total num of old words is',len(ind_old))
+			# print('num of old words is',num_old)
+		else:
+
+			batch_size = obs_s_flat.shape[0]
+			sampler = BatchSampler(SubsetRandomSampler(range(batch_size)),mini_batch_size,drop_last = False)
 
 		actions_flat = self.actions.view(-1, 1)
 		value_preds_flat = self.value_preds[:-1].view(-1, 1)
@@ -95,6 +115,9 @@ class RolloutStorage(object):
 		advantages_flat = advantages.view(-1, 1)
 
 		for indices in sampler:
+
+			# print('total number of obs is',obs_s_flat.shape[0])
+			# print('indices are',indices)
 
 			obs_batch_s = obs_s_flat[indices]
 			obs_batch_t = obs_t_flat[indices]
