@@ -64,7 +64,9 @@ class NMTEnv_train(gym.Env):
 		return tac
 
 	def is_done(self,action):     
-		if action == self.task.target_dictionary.eos() or len(self.generation) == 2*self.n_missing_words+1:
+		# if action == self.task.target_dictionary.eos() or len(self.generation) == 2*self.n_missing_words+1:
+		if action == self.task.target_dictionary.eos() or len(self.generation) == self.n_missing_words+1:
+
 			return True
 		return False
 

@@ -91,13 +91,15 @@ class RolloutStorage(object):
 		obs_s_flat = _flatten_helper(self.obs_s[:-1])
 		obs_t_flat = _flatten_helper(self.obs_t[:-1])
 
-		if self.n_words > 1:
+		if self.n_words > 100:
 
 			nw = self.new_words[:-1].reshape(-1,1).squeeze(1)
 			ind_newword = np.where(nw == True)[0]
 			ind_old = np.where(nw == False)[0]
 			newwords_ratio = self.ratio
 			num_old = int(len(ind_newword)*newwords_ratio/(1-newwords_ratio))
+			if num_old > len(ind_old):
+				num_old = len(ind_old)
 			ind_batch = np.concatenate((ind_newword ,np.random.choice(ind_old,num_old,False)))
 			sampler = BatchSampler(SubsetRandomSampler(ind_batch),mini_batch_size,drop_last = False)
 			# print('num of new words is',len(ind_newword))
@@ -114,10 +116,15 @@ class RolloutStorage(object):
 		action_log_probs_flat = self.action_log_probs.view(-1, 1)
 		advantages_flat = advantages.view(-1, 1)
 
+		count = 0
+
 		for indices in sampler:
 
 			# print('total number of obs is',obs_s_flat.shape[0])
 			# print('indices are',indices)
+			# count += 1
+			# if count > 5:
+			# 	break
 
 			obs_batch_s = obs_s_flat[indices]
 			obs_batch_t = obs_t_flat[indices]

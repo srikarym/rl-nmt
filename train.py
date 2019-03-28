@@ -5,7 +5,7 @@ import time
 import sys
 import wandb
 sys.path.insert(0, 'pytorch-a2c-ppo-acktr')
-from a2c_ppo_acktr import algo
+from a2c_ppo_acktr import algo,utils
 from a2c_ppo_acktr.model import Policy
 from a2c_ppo_acktr.storage import RolloutStorage
 from arguments import get_args
@@ -15,7 +15,7 @@ import string
 from sys import exit
 from dataloader import load_train_data,AttrDict
 from env_utils import make_vec_envs, make_dummy
-from utils import logger
+from myutils import logger
 import random
 
 args = get_args()
@@ -70,9 +70,10 @@ agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_s
 				 max_grad_norm=args.max_grad_norm)
 
 if (args.checkpoint): #Load from checkpoint
-	state = torch.load(args.file_path)
-	actor_critic.load_state_dict(state['state_dict'])
-	agent.optimizer.load_state_dict(state['optimizer'])
+	actor_critic.load_state_dict(torch.load(args.file_path))
+	# state = torch.load(args.file_path)
+	# actor_critic.load_state_dict(state['state_dict'])
+	# agent.optimizer.load_state_dict(state['optimizer'])
 
 # if (args.sen_per_epoch == 0):
 # 	sen_per_epoch = len_train_data // (args.num_steps * args.num_processes)
@@ -90,10 +91,10 @@ rollouts.obs_s[0].copy_(obs[0])
 rollouts.obs_t[0].copy_(obs[1])
 
 eval_reward_best = -100
-n_words = 1
-eval_episode_rewards = 0
+n_words = args.n_words
+eval_rewards = 0
 
-for epoch in range(args.n_epochs + 1):
+for epoch in range(args.n_epochs):
 
 	value_loss_epoch = 0.0
 	action_loss_epoch = 0.0
@@ -108,8 +109,14 @@ for epoch in range(args.n_epochs + 1):
 	rewards = []
 	ranks_iter = []
 
+	if args.use_linear_lr_decay:
+	# decrease learning rate linearly
+		utils.update_linear_schedule(
+			agent.optimizer, epoch, args.n_epochs, args.lr)
+
+
 	#Transition from n missing words to n+1
-	if  eval_episode_rewards > 0.85:
+	if  eval_rewards > args.threshold:
 		n_words+=1
 		eval_reward_best = 0
 		print('Num of missing words is',n_words)
@@ -135,8 +142,7 @@ for epoch in range(args.n_epochs + 1):
 
 		obs, reward, done, info = envs.step(action)
 
-		tac = info[:,0]
-		new_words = info[:,1]
+		tac,new_words = info[:,0],info[:,1]
 
 		masks = torch.FloatTensor([[0.0] if done_ else [1.0]
 								   for done_ in done])
@@ -146,6 +152,7 @@ for epoch in range(args.n_epochs + 1):
 
 	with torch.no_grad():
 		next_value = actor_critic.get_value((rollouts.obs_s[-1],rollouts.obs_t[-1])).detach()
+		# next_value = 0
 
 	rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
 	value_loss, action_loss, dist_entropy,total_loss = agent.update(rollouts)
@@ -188,13 +195,13 @@ for epoch in range(args.n_epochs + 1):
 			info = info_new
 
 
-		eval_episode_rewards = log.get_reward()
+		eval_rewards = log.get_reward()
 
 		eval_envs.close()
 
-		if eval_episode_rewards >= eval_reward_best:
-			eval_reward_best = eval_episode_rewards
+		if eval_rewards >= eval_reward_best:
+			eval_reward_best = eval_rewards
 			checkpoint(epoch,"best")
 
 		log.to_wandb(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
-			ranks_epoch,total_loss_epoch,eval_episode_rewards,eval_reward_best)
+			ranks_epoch,total_loss_epoch,eval_rewards,eval_reward_best)
