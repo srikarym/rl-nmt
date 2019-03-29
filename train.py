@@ -17,7 +17,7 @@ from dataloader import load_train_data,AttrDict
 from env_utils import make_vec_envs, make_dummy
 from myutils import logger
 import random
-
+from fairseq.utils import _upgrade_state_dict
 args = get_args()
 
 random.seed(args.seed)
@@ -70,15 +70,16 @@ agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_s
 				 max_grad_norm=args.max_grad_norm)
 
 if (args.checkpoint): #Load from checkpoint
-	actor_critic.load_state_dict(torch.load(args.file_path))
+	state = torch.load(args.file_path)
+	state = _upgrade_state_dict(state)
+	actor_critic.base.model.upgrade_state_dict(state['model'])
+	actor_critic.base.model.load_state_dict(state['model'], strict=True)
+
 	# state = torch.load(args.file_path)
 	# actor_critic.load_state_dict(state['state_dict'])
 	# agent.optimizer.load_state_dict(state['optimizer'])
 
-# if (args.sen_per_epoch == 0):
-# 	sen_per_epoch = len_train_data // (args.num_steps * args.num_processes)
-# else:
-# 	sen_per_epoch = args.sen_per_epoch
+
 ratio = 0.5
 rollouts = RolloutStorage(args.num_steps, args.num_processes,
 						  envs.observation_space.shape, envs.action_space,ratio,1)
@@ -159,6 +160,8 @@ for epoch in range(args.n_epochs):
 	rollouts.after_update()
 	end = time.time()
 
+	speed = (args.num_steps*args.num_processes)/(end-start)
+
 	value_loss_epoch += value_loss
 	action_loss_epoch += action_loss
 	dist_entropy_epoch += dist_entropy
@@ -204,4 +207,4 @@ for epoch in range(args.n_epochs):
 			checkpoint(epoch,"best")
 
 		log.to_wandb(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
-			ranks_epoch,total_loss_epoch,eval_rewards,eval_reward_best)
+			ranks_epoch,total_loss_epoch,eval_rewards,eval_reward_best,speed)
