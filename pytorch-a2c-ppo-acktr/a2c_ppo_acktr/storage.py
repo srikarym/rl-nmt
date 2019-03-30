@@ -122,9 +122,9 @@ class RolloutStorage(object):
 
 			# print('total number of obs is',obs_s_flat.shape[0])
 			# print('indices are',indices)
-			# count += 1
-			# if count > 5:
-			# 	break
+			count += 1
+			if count > 5:
+				break
 
 			obs_batch_s = obs_s_flat[indices]
 			obs_batch_t = obs_t_flat[indices]
