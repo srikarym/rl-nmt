@@ -4,47 +4,28 @@ import numpy as np
 import fairseq
 from a2c_ppo_acktr.distributions import Categorical, DiagGaussian, Bernoulli
 from a2c_ppo_acktr.utils import init
-# import lstm
+import lstm
 from fairseq import tasks
-
-class AttrDict(dict):
-	def __init__(self, *args, **kwargs):
-		super(AttrDict, self).__init__(*args, **kwargs)
-		self.__dict__ = self
-
-task_args = AttrDict()
-
-task_args.arch='lstm' 
-
-task_args.encoder_layers=2
-task_args.decoder_layers=2
-
-task_args.criterion='label_smoothed_cross_entropy'
-task_args.data=['data/iwslt14.tokenized.de-en']
-task_args.left_pad_source='False'
-task_args.left_pad_target='False'
-task_args.source_lang='de'
-task_args.target_lang='en'
-task_args.task='translation'
-
-
-task = tasks.setup_task(task_args)
-
-
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
-class Flatten(nn.Module):
-	def forward(self, x):
-		return x.view(x.size(0), -1)
-
+from sacrebleu import sentencebleu
 
 class Policy(nn.Module):
 	def __init__(self, obs_shape, action_space, base=None, base_kwargs=None):
 		super(Policy, self).__init__()
-		if base == 'Attn':
-			base = AttnBase
-			self.base = base(base_kwargs['n_proc'], base_kwargs['dummyenv'], recurrent=base_kwargs['recurrent'])
+		if base == 'LSTM':
+			base = LSTMBase
+			self.base = base(base_kwargs['n_proc'], base_kwargs['dummyenv'])
+			self.base.to(device)
+
+		elif base == 'FConv':
+			base = FConv
+			self.base = base(base_kwargs['n_proc'], base_kwargs['dummyenv'])
+			self.base.to(device)
+
+		elif base == 'Transformer':
+			base = TBase
+			self.base = base(base_kwargs['task'], base_kwargs['args'])
 			self.base.to(device)
 		else:
 
@@ -115,6 +96,34 @@ class Policy(nn.Module):
 
 		return value,action_log_probs,dist_entropy
 
+	def bleuscore(self,data,dummyenv):
+
+		avg_bleu = 0.0
+
+		for d in data:
+			source = d['net_input']['src_tokens']
+			truetarget = d['target']
+
+			max_len = int(len(truetarget)*1.5)
+			currlen = 0
+
+			generation = d['net_input']['prev_output_tokens']
+
+			while (currlen < max_len):
+				action = self.base((source,generation),None,True)
+				generation = torch.cat((generation,action))
+
+				if action[0].cpu().numpy()[0] == dummyenv.target_dictionary.eos():
+					break
+
+			hyp = dummyenv.target_dictionary.string(generation, bpe_symbol='@@ ').replace('@@ ','')
+			ref = dummyenv.target_dictionary.string(truetarget, bpe_symbol='@@ ').replace('@@ ','')
+
+			avg_bleu += sentencebleu(hyp,ref)
+
+		return avg_bleu/len(data)
+
+
 
 class NNBase(nn.Module):
 
@@ -141,11 +150,14 @@ class NNBase(nn.Module):
 
 
 
-class AttnBase(NNBase):
-	def __init__(self, num_inputs, dummy_env, recurrent=False, hidden_size=256):
-		super(AttnBase, self).__init__(recurrent, hidden_size, 512)
-		self.num_inputs = num_inputs
-		self.dummyenv = dummy_env
+class LSTMBase(NNBase):
+	def __init__(self, task, dummy_env,args, recurrent=False, hidden_size=256):
+		super(LSTMBase, self).__init__(recurrent, hidden_size, 512)
+
+		model = task.build_model(args)
+		model.cuda()
+		self.encoder = model.encoder
+		self.decoder = model.decoder
 
 		# self.encoder = fairseq.models.lstm.LSTMEncoder(self.dummyenv.task.source_dictionary, left_pad=False,
 		#                                                num_layers=2, dropout_in=0.0, dropout_out=0.0,
@@ -153,15 +165,163 @@ class AttnBase(NNBase):
 		# self.decoder = lstm.LSTMDecoder(self.dummyenv.task.target_dictionary, dropout_in=0.0, num_layers=2,
 		#                                 dropout_out=0.0).to(device)
 
-		self.model = task.build_model(task_args).cuda()
+		init_ = lambda m: init(m,
+							   nn.init.orthogonal_,
+							   lambda x: nn.init.constant_(x, 0))
+
+		self.critic_linear = init_(nn.Linear(256, 1)).to(device)
+		self.pad_value = dummy_env.task.source_dictionary.pad()
+
+		self.train()
+
+	def forward(self, inputs, tac=None, generation = True):
+
+
+		s = inputs[0].long().to(device)
+		t = inputs[1].long().to(device)
+
+		nos = []
+		for i in range(s.shape[0]):
+			nos.append(int(torch.sum(s[i] == self.pad_value).cpu().numpy()))
+
+
+		if (min(nos) != 0):
+			s = s[:, :s.shape[1] - min(nos)]
+
+		idx = []
+		for i in range(s.shape[0]):
+			l = (s[i] == self.pad_value).nonzero()
+			if l.shape[0] == 0:
+				l = s.shape[1]
+			else:
+				l = l[0].cpu().numpy()[0]
+			idx.append(l)
+
+		enc_out = self.encoder(s, torch.tensor(idx).long().to(device))
+
+		dec_out,dec_hidden = self.decoder(t, enc_out)
+
+		m = torch.nn.Softmax(dim=-1)
+
+		if generation:
+			return m(dec_out)
+
+		idx = []
+		for i in range(t.shape[0]):
+			l = (t[i] == self.pad_value).nonzero()
+			if l.shape[0] == 0:
+				l = -1
+			else:
+				l = l[0]-1
+			idx.append(l)
+
+		outs = dec_out[np.arange(dec_out.shape[0]), idx, :]
+		hidden = dec_hidden[np.arange(dec_hidden.shape[0]), idx, :]
+
+		sm = m(outs)
+
+
+		if tac is None:
+			return self.critic_linear(hidden), sm, None
+		else:
+
+			sm_np = sm.cpu().numpy()
+			probs = sm_np[np.arange(sm_np.shape[0]),tac]
+
+			np.ndarray.sort(sm_np)
+
+			ranks = []
+			for i in range(t.shape[0]):
+				for j in range(sm_np[0].shape[0]):
+					if sm_np[i][j] == probs[i]:
+						break
+				ranks.append(sm_np[0].shape[0] - j)
+
+
+			return self.critic_linear(hidden), sm, ranks
+
+
+class TBase(NNBase):
+	def __init__(self, task, args, recurrent=False, hidden_size=256):
+		super(TBase, self).__init__(recurrent, hidden_size, 512)
+
+
+		self.model = task.build_model(args).to(device)
+		init_ = lambda m: init(m,
+							   nn.init.orthogonal_,
+							   lambda x: nn.init.constant_(x, 0))		
+
+		self.critic_linear = init_(nn.Linear(512, 1)).to(device)
+		self.pad_value = task.source_dictionary.pad()
+
+		self.train()
+
+	def forward(self, inputs, tac=None):
+
+		s = inputs[0].long().to(device)
+		t = inputs[1].long().to(device)
+
+		nos = []
+		for i in range(s.shape[0]):
+			nos.append(int(torch.sum(s[i] == 1).cpu().numpy()))
+			
+		if (min(nos) != 0):
+			s = s[:,- (100 - min(nos)):]
+
+		lens = [100-n for n in nos]		
+
+		obs = {'src_tokens':s,
+					'src_lengths':torch.tensor(lens).long().to(device),
+					'prev_output_tokens':t}
+
+		dec_hidden,dec_out = self.model(**obs)
+
+		outs = dec_out[:,-1,:]
+		hidden = dec_hidden[:,-1,:]
+
+		m = torch.nn.Softmax(dim=-1)
+		sm = m(outs)
+
+
+		if tac is None:
+			return self.critic_linear(hidden), sm, None
+		else:
+
+			sm_np = sm.cpu().numpy()
+			probs = sm_np[np.arange(sm_np.shape[0]),tac]
+
+			np.ndarray.sort(sm_np)
+
+			ranks = []
+			for i in range(t.shape[0]):
+				for j in range(sm_np[0].shape[0]):
+					if sm_np[i][j] == probs[i]:
+						break
+				ranks.append(sm_np[0].shape[0] - j)
+
+
+			return self.critic_linear(hidden), sm, ranks		
+
+class FConv(NNBase):
+	def __init__(self, num_inputs, dummy_env, recurrent=False, hidden_size=256):
+		super(FConv, self).__init__(recurrent, hidden_size, 512)
+
+		self.dec_out_dim = 256 
+
+		self.encoder = fairseq.models.fconv.FConvEncoder(dictionary=dummy_env.task.src_dict,embed_dim=256,\
+						convolutions = eval('[(256, 3)] * 4'),left_pad = False,max_positions=100)
+		self.decoder = fairseq.models.fconv.FConvDecoder(dictionary=dummy_env.task.tgt_dict,embed_dim=256,\
+						convolutions=eval('[(256, 3)] * 3'),out_embed_dim=self.dec_out_dim)
+
+		self.encoder.num_attention_layers = sum(layer is not None for layer in self.decoder.attention)
 
 
 		init_ = lambda m: init(m,
 							   nn.init.orthogonal_,
 							   lambda x: nn.init.constant_(x, 0))
 
-		self.critic_linear = init_(nn.Linear(512, 1)).to(device)
-		self.pad_value = self.dummyenv.task.source_dictionary.pad()
+		self.critic_linear = init_(nn.Linear(self.dec_out_dim, 1)).to(device)
+		self.pad_value = dummy_env.task.source_dictionary.pad()
 
 		self.train()
 
@@ -185,17 +345,9 @@ class AttnBase(NNBase):
 			else:
 				l = l[0].cpu().numpy()[0]
 			idx.append(l)
+		enc_out = self.encoder(s, torch.tensor(idx).long().to(device))
 
-		obs = {'src_tokens':s,
-					'src_lengths':torch.tensor(idx).long().to(device),
-					'prev_output_tokens':t}
-
-		# enc_out = self.encoder(s, torch.tensor(idx).long().to(device))
-
-		# dec_hidden,dec_out = self.decoder(t, enc_out)
-
-		dec_out,dec_hidden = self.model(**obs)
-
+		dec_hidden,dec_out = self.decoder(t, enc_out)
 		idx = []
 		for i in range(t.shape[0]):
 			l = (t[i] == self.pad_value).nonzero()

@@ -38,10 +38,7 @@ class logger():
 		return np.mean(self.eval_rewards)
 
 	def to_wandb(self,epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
-			ranks_epoch,total_loss_epoch,rewards,eval_reward_best,speed):
-
-		#for i in range(self.num_sentences):
-		#	wandb.log({"Words_per_sen/Sentence_"+str(i):self.success[i]},step = epoch)
+			ranks_epoch,total_loss_epoch,rewards,eval_reward_best,speed,bleuscore):
 
 
 		columns = ["word_"+str(i) for i in range(n_words+1)]
@@ -59,4 +56,5 @@ class logger():
 		   "Rewards/Mean_evaluation_reward": rewards,
 		   "Rewards/Best_eval_reward":eval_reward_best,
 		   "Misc/Missing_words":n_words,
-		   "Misc/Steps_per_sec":speed},step = epoch)
+		   "Misc/Steps_per_sec":speed,
+		   "Bleuscore":bleuscore},step = epoch)
