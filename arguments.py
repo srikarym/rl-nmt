@@ -3,11 +3,20 @@ import argparse
 
 def get_args():
 	parser = argparse.ArgumentParser(description='RL')
+
+	parser.add_argument('--algo', default='ppo',
+					help='algorithm to use: a2c | ppo | acktr')
+
 	parser.add_argument('--lr', type=float, default=7e-4,
 						help='learning rate (default: 7e-4)')
 
-	parser.add_argument('--n-epochs', type=int, default=10000,
+	parser.add_argument('--alpha', type=float, default=0.99,
+						help='RMSprop optimizer apha (default: 0.99)')
+
+	parser.add_argument('--n-epochs', type=int, default=50,
 						help='Number of epochs')
+	parser.add_argument('--arch',type = str,default='LSTM',
+						help = 'LSTM | Transformer')
 
 	parser.add_argument('--num-processes', type=int, default=16,
 						help='how many training CPU processes to use (default: 16)')
@@ -32,6 +41,9 @@ def get_args():
 
 	parser.add_argument('--ppo-batch-size', type=int, default=40,
 						help='Batch size in ppo')
+
+	parser.add_argument('--ppo-mini-batches',type=int,default=5,
+						help='Stop after # minibatches in ppo')
 
 	parser.add_argument('--clip-param', type=float, default=0.2,
 						help='ppo clip parameter (default: 0.2)')
@@ -91,14 +103,8 @@ def get_args():
 	parser.add_argument('--eval-interval', type=int, default=None,
 						help='eval interval, one eval per n updates (default: None)')
 
-	parser.add_argument('--threshold',type=float,default = 0.9,
-						help='Threshold on reward to make a transition')
-
-	parser.add_argument('--use-linear-lr-decay',action='store_true',default=False,
-						help='use a linear schedule on the learning rate')
-
-	parser.add_argument('--n-words', type=int, default=1,
-					help='number of missing words to start (default: 1)')
+	parser.add_argument('--threshold',type=float,default=0.9,
+						help='Eval threshold for transition in missing words')
 
 
 
