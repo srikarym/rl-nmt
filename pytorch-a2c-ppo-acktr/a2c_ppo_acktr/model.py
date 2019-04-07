@@ -160,6 +160,10 @@ class Policy(nn.Module):
 
 		return avg_bleu/len(data)
 
+	def get_dec_sm(self,inputs):
+		action = self.base(inputs,None,False,True)
+		return action
+
 
 
 class NNBase(nn.Module):
@@ -206,7 +210,7 @@ class AttnBase(NNBase):
 
 		self.train()
 
-	def forward(self, inputs, tac=None,generation = False):
+	def forward(self, inputs, tac=None,generation = False,logsoftmax = False):
 		s = inputs[0].long().to(device)
 		t = inputs[1].long().to(device)
 
@@ -253,6 +257,10 @@ class AttnBase(NNBase):
 
 		outs = dec_out[np.arange(dec_out.shape[0]), idx, :]
 		hidden = dec_hidden[np.arange(dec_hidden.shape[0]), idx, :]
+
+		if logsoftmax:
+			m = nn.LogSoftmax()
+			return m(outs)
 
 		sm = m(outs)
 

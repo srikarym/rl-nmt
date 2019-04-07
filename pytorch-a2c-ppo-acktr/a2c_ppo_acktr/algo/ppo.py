@@ -76,7 +76,9 @@ class PPO():
 				# total_loss = (action_loss - dist_entropy * self.entropy_coef + value_loss*self.value_loss_coef)
 				rl_loss = (action_loss - dist_entropy * self.entropy_coef + value_loss*self.value_loss_coef)
 
-				nll_loss = criterion(actions_batch,gt)
+				action = self.actor_critic.get_dec_sm(obs_batch)
+				# print(action.shape,gt.shape)
+				nll_loss = criterion(action,gt.squeeze().cuda().long())
 
 				total_loss = 0.5*(rl_loss + nll_loss)
 

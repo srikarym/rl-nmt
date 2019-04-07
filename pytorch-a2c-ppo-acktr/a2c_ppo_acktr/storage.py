@@ -62,7 +62,9 @@ class RolloutStorage(object):
 		self.rewards[self.step].copy_(rewards)
 		self.masks[self.step+1].copy_(masks)
 
-		self.gt[self.step + 1].copy_(tac)
+		# print(gt.shape)
+
+		self.gt[self.step + 1].copy_(torch.tensor(gt))
 
 		self.new_words[self.step+1] = new_words
 
