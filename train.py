@@ -80,6 +80,7 @@ if (args.checkpoint): #Load from checkpoint
 	# actor_critic.load_state_dict(state['state_dict'])
 	# agent.optimizer.load_state_dict(state['optimizer'])
 
+n_epochs_currentword = 0
 
 ratio = 0.5
 rollouts = RolloutStorage(args.num_steps, args.num_processes,
@@ -97,7 +98,7 @@ n_words = 1
 eval_rewards = 0
 
 for epoch in range(args.n_epochs):
-
+	n_epochs_currentword += 1
 	value_loss_epoch = 0.0
 	action_loss_epoch = 0.0
 	dist_entropy_epoch = 0.0
@@ -118,7 +119,8 @@ for epoch in range(args.n_epochs):
 
 
 	#Transition from n missing words to n+1
-	if  eval_rewards > args.threshold:
+	if  eval_rewards > args.threshold or n_epochs_currentword > args.n_epochs_per_word:
+		n_epochs_currentword = 0
 		n_words+=1
 		eval_reward_best = 0
 		print('Num of missing words is',n_words)
@@ -150,7 +152,7 @@ for epoch in range(args.n_epochs):
 		masks = torch.FloatTensor([[0.0] if done_ else [1.0]
 								   for done_ in done])
 
-		rollouts.insert(obs,action, action_log_prob, value, reward, masks, new_words)
+		rollouts.insert(obs,action, action_log_prob, value, reward, masks, new_words,tac)
 		rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
 
 	with torch.no_grad():
@@ -181,7 +183,7 @@ for epoch in range(args.n_epochs):
 	if (args.eval_interval is not None and epoch%args.eval_interval == 0):
 
 		nenvs = args.num_sentences
-		eval_episode_rewards = 0
+		eval_rewards = 0
 		for j in range(args.num_sentences//nenvs):
 			eval_envs = make_vec_envs(args.env_name,n_words,args.seed,train_data[j*nenvs:j*nenvs + nenvs],\
 				task,args.num_processes,train = False, num_sentences = nenvs,eval_env_name = 'nmt_eval-v0')
@@ -205,16 +207,16 @@ for epoch in range(args.n_epochs):
 				info = info_new
 
 
-			eval_episode_rewards += log.get_reward()
+			eval_rewards += log.get_reward()
 
 		eval_envs.close()
 
-		eval_episode_rewards /= (args.num_sentences//nenvs)
+		eval_rewards /= (args.num_sentences//nenvs)
 
-		if eval_episode_rewards >= eval_reward_best:
-			eval_reward_best = eval_episode_rewards
+		if eval_rewards >= eval_reward_best:
+			eval_reward_best = eval_rewards
 			checkpoint(epoch,"best")
 
 		if (args.use_wandb):
 			log.to_wandb(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
-				ranks_epoch,total_loss_epoch,eval_episode_rewards,eval_reward_best,speed,bleuscore)
+				ranks_epoch,total_loss_epoch,eval_rewards,eval_reward_best,speed,bleuscore)

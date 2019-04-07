@@ -6,7 +6,7 @@ import sys
 
 email = "msy290@nyu.edu"
 directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
-run = "week5_better_logs"
+run = "week10_bleu_new"
 slurm_logs = os.path.join(directory, "slurm_logs",run)
 slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
@@ -59,14 +59,14 @@ def train(flags, jobname=None, time=24):
 
 
 job = {
-        "env-name":"nmt_train-v0","n-epochs-per-word": 500, "n-epochs": 2000,
-        "num-processes": 100, "ppo-batch-size" :1000, "log-dir": logdir, "save-dir": savedir,
-        "save-interval":1000,"num-steps": 150,"sen_per_epoch": 1,"use-wandb":"",
-	    "eval-interval":1,"entropy-coef":0.05,"use-gae":"","reduced":""
+        "env-name":"nmt_train-v0","n-epochs-per-word": 50, "n-epochs": 2000,
+        "num-processes": 100, "ppo-batch-size" :600, "log-dir": logdir, "save-dir": savedir,
+        "save-interval":1000,"num-steps": 100,"sen_per_epoch": 1,"use-wandb":"",
+	    "eval-interval":1,"entropy-coef":0.04,"use-gae":""
         }
 
-for seed in [1,2,3]:
-    for nsen in [3,10]:
+for seed in [1,2]:
+    for nsen in [3,10,100]:
         j = {k:v for k,v in job.items()}
         time = 48
         j["seed"] = seed

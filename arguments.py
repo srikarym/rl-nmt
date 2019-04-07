@@ -21,14 +21,14 @@ def get_args():
 	parser.add_argument('--num-processes', type=int, default=16,
 						help='how many training CPU processes to use (default: 16)')
 
-	parser.add_argument('--num-steps', type=int, default=5,
-						help='number of forward steps in A2C (default: 5)')
+	parser.add_argument('--num-steps', type=int, default=50,
+						help='number of forward steps in A2C (default: 50)')
 
 	parser.add_argument('--max-missing-words', type=int, default=20,
 						help='Maximum number of words missing in target sentence (default: 20)')
 
-	parser.add_argument('--n-epochs-per-word', type=int, default=10,
-						help='Num of epochs per missing word in target sentence (default: 10)')
+	parser.add_argument('--n-epochs-per-word', type=int, default=100,
+						help='Num of epochs per missing word in target sentence (default: 100)')
 
 	parser.add_argument('--gamma', type=float, default=0.99,
 						help='discount factor for rewards (default: 0.99)')

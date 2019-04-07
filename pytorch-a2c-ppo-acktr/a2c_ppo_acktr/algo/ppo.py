@@ -41,6 +41,7 @@ class PPO():
 		total_loss_epoch = 0
 
 		num_updates = 0
+		criterion = nn.NLLLoss()
 		for e in range(self.ppo_epoch):
 			data_generator = rollouts.feed_forward_generator(advantages, self.mini_batch_size)
 
@@ -49,7 +50,7 @@ class PPO():
 
 				obs_batch, actions_batch, \
 				   value_preds_batch, return_batch, old_action_log_probs_batch, \
-						adv_targ = sample
+						adv_targ,gt = sample
 
 				values, action_log_probs, dist_entropy = self.actor_critic.evaluate_actions(
 					obs_batch, actions_batch)
@@ -72,9 +73,13 @@ class PPO():
 				self.optimizer.zero_grad()
 
 
-				total_loss = (action_loss - dist_entropy * self.entropy_coef + value_loss*self.value_loss_coef)
-				# vl_sm = torch.nn.Softmax(dim=0)(value_loss)
-				# total_loss = (action_loss - dist_entropy * self.entropy_coef)*vl_sm
+				# total_loss = (action_loss - dist_entropy * self.entropy_coef + value_loss*self.value_loss_coef)
+				rl_loss = (action_loss - dist_entropy * self.entropy_coef + value_loss*self.value_loss_coef)
+
+				nll_loss = criterion(actions_batch,gt)
+
+				total_loss = 0.5*(rl_loss + nll_loss)
+
 
 				total_loss.backward()
 

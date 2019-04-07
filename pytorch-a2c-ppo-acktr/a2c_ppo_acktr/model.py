@@ -127,24 +127,30 @@ class Policy(nn.Module):
 
 			max_len = int(len(truetarget)*1.5)
 
-			generation = d['net_input']['prev_output_tokens'][:,1].unsqueeze(0).cuda()
-			dec_input = generation
+			prev_output_tokens = d['net_input']['prev_output_tokens'].cuda()
+			dec_input = prev_output_tokens[:,0].unsqueeze(0)
 			# print(generation.shape,d['net_input']['prev_output_tokens'].shape)
-			currlen = len(dec_input)
 
-			while (currlen < max_len):
-				currlen = len(dec_input)
+			currlen = 0
+			while (True):
 
 				action = self.base((source,dec_input),None,True)
 				# print(action.type(), generation.type())
 				_, topi = action.topk(1)
 				# print(topi.shape)
-				dec_input = topi[0].detach()
+				output = topi[0].detach()
 				# print(dec_input.shape,generation.shape)
-				generation = torch.cat((generation,dec_input.long()))
+				if currlen == 0:
+					generation = output
+				else:
+					generation = torch.cat((generation,output.long()))
 
-				if dec_input[0].cpu().numpy()[0] == dummyenv.task.target_dictionary.eos():
+				currlen = len(generation)
+				
+				if output[0].cpu().numpy()[0] == dummyenv.task.target_dictionary.eos() or currlen > max_len:
 					break
+
+				dec_input = prev_output_tokens[:,currlen-1].unsqueeze(0)
 
 			hyp = dummyenv.task.target_dictionary.string(generation, bpe_symbol='@@ ').replace('@@ ','')
 			ref = dummyenv.task.target_dictionary.string(truetarget, bpe_symbol='@@ ').replace('@@ ','')
