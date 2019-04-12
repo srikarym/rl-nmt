@@ -73,7 +73,7 @@ agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_s
 if (args.checkpoint): #Load from checkpoint
 	state = torch.load(args.file_path)
 	state = _upgrade_state_dict(state)
-	actor_critic.base.model.upgrade_state_dict(state['model'])
+	# actor_critic.base.model.upgrade_state_dict(state['model'])
 	actor_critic.base.model.load_state_dict(state['model'], strict=True)
 
 
@@ -167,6 +167,7 @@ for epoch in range(args.n_epochs):
 	#Calculate bleu score
 	bleuscore = actor_critic.bleuscore()
 
+	print('bleuscore is',bleuscore)
 
 	#Evaluation (rewards with determininstic actions)
 	# if (args.eval_interval is not None and epoch%args.eval_interval == 0):
