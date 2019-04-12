@@ -11,6 +11,7 @@ from fairseq.utils import _upgrade_state_dict
 from fairseq import bleu, options, progress_bar, tasks, utils
 from fairseq.meters import StopwatchMeter, TimeMeter
 from misc import args
+from copy import deepcopy
 
 class AttrDict(dict):
 	def __init__(self, *args, **kwargs):
@@ -19,7 +20,7 @@ class AttrDict(dict):
 
 task_args = AttrDict()
 
-task_args.arch='lstm' 
+task_args.arch='lstm'
 
 task_args.encoder_layers=2
 task_args.decoder_layers=2
@@ -76,6 +77,7 @@ class Policy(nn.Module):
 		self.task.load_dataset(args.gen_subset)
 		self.src_dict = getattr(self.task, 'source_dictionary', None)
 		self.tgt_dict = self.task.target_dictionary
+		self.generator = self.task.build_generator(args)
 
 
 	@property
@@ -121,13 +123,16 @@ class Policy(nn.Module):
 
 	def bleuscore(self):
 
+		model = self.base.model
+		# print(model)
+
 		itr = self.task.get_batch_iterator(
 			dataset=self.task.dataset(args.gen_subset),
 			max_tokens=args.max_tokens,
 			max_sentences=args.max_sentences,
 			max_positions=utils.resolve_max_positions(
 				self.task.max_positions(),
-				*[self.base.model.max_positions() ]
+				*[model.max_positions() ]
 			),
 			ignore_invalid_inputs=args.skip_invalid_size_inputs_valid_test,
 			required_batch_size_multiple=args.required_batch_size_multiple,
@@ -135,13 +140,11 @@ class Policy(nn.Module):
 			shard_id=args.shard_id,
 			num_workers=args.num_workers,
 		).next_epoch_itr(shuffle=False)
-		
-		generator = self.task.build_generator(args)
 
 		scorer = bleu.Scorer(self.tgt_dict.pad(), self.tgt_dict.eos(), self.tgt_dict.unk())
 		use_cuda = torch.cuda.is_available() and not args.cpu
 		has_target = True
-		
+
 
 		with progress_bar.build_progress_bar(args, itr) as t:
 			for sample in t:
@@ -153,7 +156,7 @@ class Policy(nn.Module):
 				if args.prefix_size > 0:
 					prefix_tokens = sample['target'][:, :args.prefix_size]
 
-				hypos = self.task.inference_step(generator, [self.base.model], sample, prefix_tokens)
+				hypos = self.task.inference_step(self.generator, [model], sample, prefix_tokens)
 				num_generated_tokens = sum(len(h[0]['tokens']) for h in hypos)
 
 				for i, sample_id in enumerate(sample['id'].tolist()):

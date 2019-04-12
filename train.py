@@ -36,7 +36,7 @@ def checkpoint(epoch,name = None):
 		'epoch': epoch,
 		'state_dict': actor_critic.state_dict(),
 		'optimizer': agent.optimizer.state_dict(),
-		
+
 	}
 	if name is not None:
 		torch.save(state, os.path.join(args.save_dir, extra_name )+ "/model_" + name)
@@ -51,7 +51,7 @@ if args.use_wandb:
 
 	wandb.run.description = args.run_name
 	wandb.run.save()
-	
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 train_data,task = load_train_data()
@@ -73,7 +73,7 @@ agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_s
 if (args.checkpoint): #Load from checkpoint
 	state = torch.load(args.file_path)
 	state = _upgrade_state_dict(state)
-	# actor_critic.base.model.upgrade_state_dict(state['model'])
+	actor_critic.base.model.upgrade_state_dict(state['model'])
 	actor_critic.base.model.load_state_dict(state['model'], strict=True)
 
 
@@ -91,7 +91,6 @@ tac = tac[:,0]
 rollouts.obs_s[0].copy_(obs[0])
 rollouts.obs_t[0].copy_(obs[1])
 
-eval_reward_best = -100
 n_words = 1
 
 for epoch in range(args.n_epochs):
@@ -165,7 +164,8 @@ for epoch in range(args.n_epochs):
 		checkpoint(epoch)
 
 	#Calculate bleu score
-	bleuscore = actor_critic.bleuscore()
+	with torch.no_grad():
+		bleuscore = actor_critic.bleuscore()
 
 	print('bleuscore is',bleuscore)
 
