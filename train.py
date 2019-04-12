@@ -76,9 +76,7 @@ if (args.checkpoint): #Load from checkpoint
 	actor_critic.base.model.upgrade_state_dict(state['model'])
 	actor_critic.base.model.load_state_dict(state['model'], strict=True)
 
-	# state = torch.load(args.file_path)
-	# actor_critic.load_state_dict(state['state_dict'])
-	# agent.optimizer.load_state_dict(state['optimizer'])
+
 
 n_epochs_currentword = 0
 
@@ -95,7 +93,6 @@ rollouts.obs_t[0].copy_(obs[1])
 
 eval_reward_best = -100
 n_words = 1
-eval_rewards = 0
 
 for epoch in range(args.n_epochs):
 	n_epochs_currentword += 1
@@ -112,17 +109,10 @@ for epoch in range(args.n_epochs):
 	rewards = []
 	ranks_iter = []
 
-	# if args.use_linear_lr_decay:
-	# # decrease learning rate linearly
-	# 	utils.update_linear_schedule(
-	# 		agent.optimizer, epoch, args.n_epochs, args.lr)
 
-
-	#Transition from n missing words to n+1
-	if  eval_rewards > args.threshold or n_epochs_currentword > args.n_epochs_per_word:
+	if  n_epochs_currentword > args.n_epochs_per_word:
 		n_epochs_currentword = 0
 		n_words+=1
-		eval_reward_best = 0
 		print('Num of missing words is',n_words)
 		envs.close()
 		envs = make_vec_envs(args.env_name,n_words,args.seed,train_data[:args.num_sentences],task,args.num_processes)
@@ -133,10 +123,8 @@ for epoch in range(args.n_epochs):
 
 		obs, info = envs.reset()
 		tac = info[:,0]
-		new_words = info[:,1]
 		rollouts.obs_s[0].copy_(obs[0])
 		rollouts.obs_t[0].copy_(obs[1])
-		rollouts.new_words[0] = new_words
 
 	for step in range(args.num_steps):
 
@@ -147,12 +135,12 @@ for epoch in range(args.n_epochs):
 
 		obs, reward, done, info = envs.step(action)
 
-		tac,new_words = info[:,0],info[:,1]
+		tac = info[:,0]
 
 		masks = torch.FloatTensor([[0.0] if done_ else [1.0]
 								   for done_ in done])
 
-		rollouts.insert(obs,action, action_log_prob, value, reward, masks, new_words,tac)
+		rollouts.insert(obs,action, action_log_prob, value, reward, masks,tac)
 		rewards.append(np.mean(reward.squeeze(1).cpu().numpy()))
 
 	with torch.no_grad():
@@ -177,46 +165,47 @@ for epoch in range(args.n_epochs):
 		checkpoint(epoch)
 
 	#Calculate bleu score
-	bleuscore = actor_critic.bleuscore(train_data[:args.num_sentences],dummy)
+	bleuscore = actor_critic.bleuscore()
+
 
 	#Evaluation (rewards with determininstic actions)
-	if (args.eval_interval is not None and epoch%args.eval_interval == 0):
+	# if (args.eval_interval is not None and epoch%args.eval_interval == 0):
 
-		nenvs = args.num_sentences
-		eval_rewards = 0
-		for j in range(args.num_sentences//nenvs):
-			eval_envs = make_vec_envs(args.env_name,n_words,args.seed,train_data[j*nenvs:j*nenvs + nenvs],\
-				task,args.num_processes,train = False, num_sentences = nenvs,eval_env_name = 'nmt_eval-v0')
-
-
-			obs,info = eval_envs.reset()
-
-			log = logger(nenvs,task)
-
-			for i in range(n_words+1):
-
-				with torch.no_grad():
-					_,action,_,_ = actor_critic.act(obs, tac=None,deterministic=True)
-
-				obs_new, reward, done, info_new = eval_envs.step(action)
-
-				log.print_stuff(i,obs,action,reward,info)
-				log.append_rewards(done,reward)
-
-				obs = obs_new
-				info = info_new
+	# 	nenvs = args.num_sentences
+	# 	eval_rewards = 0
+	# 	for j in range(args.num_sentences//nenvs):
+	# 		eval_envs = make_vec_envs(args.env_name,n_words,args.seed,train_data[j*nenvs:j*nenvs + nenvs],\
+	# 			task,args.num_processes,train = False, num_sentences = nenvs,eval_env_name = 'nmt_eval-v0')
 
 
-			eval_rewards += log.get_reward()
+	# 		obs,info = eval_envs.reset()
 
-		eval_envs.close()
+	# 		log = logger(nenvs,task)
 
-		eval_rewards /= (args.num_sentences//nenvs)
+	# 		for i in range(n_words+1):
 
-		if eval_rewards >= eval_reward_best:
-			eval_reward_best = eval_rewards
-			checkpoint(epoch,"best")
+	# 			with torch.no_grad():
+	# 				_,action,_,_ = actor_critic.act(obs, tac=None,deterministic=True)
 
-		if (args.use_wandb):
-			log.to_wandb(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
-				ranks_epoch,total_loss_epoch,eval_rewards,eval_reward_best,speed,bleuscore)
+	# 			obs_new, reward, done, info_new = eval_envs.step(action)
+
+	# 			log.print_stuff(i,obs,action,reward,info)
+	# 			log.append_rewards(done,reward)
+
+	# 			obs = obs_new
+	# 			info = info_new
+
+
+	# 		eval_rewards += log.get_reward()
+
+	# 	eval_envs.close()
+
+	# 	eval_rewards /= (args.num_sentences//nenvs)
+
+		# if eval_rewards >= eval_reward_best:
+		# 	eval_reward_best = eval_rewards
+		# 	checkpoint(epoch,"best")
+
+	if (args.use_wandb):
+		logger.log(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
+			ranks_epoch,total_loss_epoch,speed,bleuscore)

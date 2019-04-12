@@ -6,6 +6,11 @@ from a2c_ppo_acktr.distributions import Categorical, DiagGaussian, Bernoulli
 from a2c_ppo_acktr.utils import init
 # import lstm
 from fairseq import tasks
+from fairseq.utils import import_user_module
+from fairseq.utils import _upgrade_state_dict
+from fairseq import bleu, options, progress_bar, tasks, utils
+from fairseq.meters import StopwatchMeter, TimeMeter
+from misc import args
 
 class AttrDict(dict):
 	def __init__(self, *args, **kwargs):
@@ -48,19 +53,6 @@ class Policy(nn.Module):
 			base = AttnBase
 			self.base = base(base_kwargs['n_proc'], base_kwargs['dummyenv'], recurrent=base_kwargs['recurrent'])
 			self.base.to(device)
-		else:
-
-			if base_kwargs is None:
-				base_kwargs = {}
-			if base is None:
-				if len(obs_shape) == 3:
-					base = CNNBase
-				elif len(obs_shape) == 1:
-					base = MLPBase
-				else:
-					raise NotImplementedError
-
-			self.base = base(obs_shape[0], **base_kwargs)
 
 
 		if action_space.__class__.__name__ == "Discrete":
@@ -75,6 +67,16 @@ class Policy(nn.Module):
 		else:
 			raise NotImplementedError
 		self.dist.to(device)
+
+		if args.max_tokens is None and args.max_sentences is None:
+			args.max_tokens = 12000
+
+		self.align_dict = utils.load_align_dict(args.replace_unk)
+		self.task = tasks.setup_task(args)
+		self.task.load_dataset(args.gen_subset)
+		self.src_dict = getattr(self.task, 'source_dictionary', None)
+		self.tgt_dict = self.task.target_dictionary
+
 
 	@property
 	def is_recurrent(self):
@@ -117,48 +119,89 @@ class Policy(nn.Module):
 
 		return value,action_log_probs,dist_entropy
 
-	def bleuscore(self,data,dummyenv):
+	def bleuscore(self):
 
-		avg_bleu = 0.0
+		itr = self.task.get_batch_iterator(
+			dataset=self.task.dataset(args.gen_subset),
+			max_tokens=args.max_tokens,
+			max_sentences=args.max_sentences,
+			max_positions=utils.resolve_max_positions(
+				self.task.max_positions(),
+				*[self.base.model.max_positions() ]
+			),
+			ignore_invalid_inputs=args.skip_invalid_size_inputs_valid_test,
+			required_batch_size_multiple=args.required_batch_size_multiple,
+			num_shards=args.num_shards,
+			shard_id=args.shard_id,
+			num_workers=args.num_workers,
+		).next_epoch_itr(shuffle=False)
+		
+		generator = self.task.build_generator(args)
 
-		for d in data:
-			source = d['net_input']['src_tokens'].cuda()
-			truetarget = d['target'].cuda()
+		scorer = bleu.Scorer(self.tgt_dict.pad(), self.tgt_dict.eos(), self.tgt_dict.unk())
+		use_cuda = torch.cuda.is_available() and not args.cpu
+		has_target = True
+		
 
-			max_len = int(len(truetarget)*1.5)
+		with progress_bar.build_progress_bar(args, itr) as t:
+			for sample in t:
+				sample = utils.move_to_cuda(sample) if use_cuda else sample
+				if 'net_input' not in sample:
+					continue
 
-			prev_output_tokens = d['net_input']['prev_output_tokens'].cuda()
-			dec_input = prev_output_tokens[:,0].unsqueeze(0)
-			# print(generation.shape,d['net_input']['prev_output_tokens'].shape)
+				prefix_tokens = None
+				if args.prefix_size > 0:
+					prefix_tokens = sample['target'][:, :args.prefix_size]
 
-			currlen = 0
-			while (True):
+				hypos = self.task.inference_step(generator, [self.base.model], sample, prefix_tokens)
+				num_generated_tokens = sum(len(h[0]['tokens']) for h in hypos)
 
-				action = self.base((source,dec_input),None,True)
-				# print(action.type(), generation.type())
-				_, topi = action.topk(1)
-				# print(topi.shape)
-				output = topi[0].detach()
-				# print(dec_input.shape,generation.shape)
-				if currlen == 0:
-					generation = output
-				else:
-					generation = torch.cat((generation,output.long()))
+				for i, sample_id in enumerate(sample['id'].tolist()):
+					has_target = sample['target'] is not None
 
-				currlen = len(generation)
-				
-				if output[0].cpu().numpy()[0] == dummyenv.task.target_dictionary.eos() or currlen > max_len:
-					break
+					# Remove padding
+					src_tokens = utils.strip_pad(sample['net_input']['src_tokens'][i, :], self.tgt_dict.pad())
+					target_tokens = None
+					if has_target:
+						target_tokens = utils.strip_pad(sample['target'][i, :], self.tgt_dict.pad()).int().cpu()
 
-				dec_input = prev_output_tokens[:,currlen-1].unsqueeze(0)
+					# Either retrieve the original sentences or regenerate them from tokens.
+					if self.align_dict is not None:
+						src_str = self.task.dataset(args.gen_subset).src.get_original_text(sample_id)
+						target_str = self.task.dataset(args.gen_subset).tgt.get_original_text(sample_id)
+					else:
+						if self.src_dict is not None:
+							src_str = self.src_dict.string(src_tokens, args.remove_bpe)
+						else:
+							src_str = ""
+						if has_target:
+							target_str = self.tgt_dict.string(target_tokens, args.remove_bpe, escape_unk=True)
 
-			hyp = dummyenv.task.target_dictionary.string(generation, bpe_symbol='@@ ').replace('@@ ','')
-			ref = dummyenv.task.target_dictionary.string(truetarget, bpe_symbol='@@ ').replace('@@ ','')
+
+					# Process top predictions
+					for i, hypo in enumerate(hypos[i][:min(len(hypos), args.nbest)]):
+						hypo_tokens, hypo_str, alignment = utils.post_process_prediction(
+							hypo_tokens=hypo['tokens'].int().cpu(),
+							src_str=src_str,
+							alignment=hypo['alignment'].int().cpu() if hypo['alignment'] is not None else None,
+							align_dict=self.align_dict,
+							tgt_dict=self.tgt_dict,
+							remove_bpe=args.remove_bpe,
+						)
 
 
-			avg_bleu += sentence_bleu(hyp,ref)
+						# Score only the top hypothesis
+						if has_target and i == 0:
+							if self.align_dict is not None or args.remove_bpe is not None:
+								# Convert back to tokens for evaluation with unk replacement and/or without BPE
+								target_tokens = self.tgt_dict.encode_line(target_str, add_if_not_exist=True)
+							if hasattr(scorer, 'add_string'):
+								scorer.add_string(target_str, hypo_str)
+							else:
+								scorer.add(target_tokens, hypo_tokens)
 
-		return avg_bleu/len(data)
+
+		return scorer.score(4)
 
 	def get_dec_sm(self,inputs):
 		action = self.base(inputs,None,False,True)
@@ -231,15 +274,15 @@ class AttnBase(NNBase):
 				l = l[0].cpu().numpy()[0]
 			idx.append(l)
 
-		obs = {'src_tokens':s,
-					'src_lengths':torch.tensor(idx).long().to(device),
-					'prev_output_tokens':t}
+		# obs = {'src_tokens':s,
+		# 			'src_lengths':torch.tensor(idx).long().to(device),
+		# 			'prev_output_tokens':t}
 
-		# enc_out = self.encoder(s, torch.tensor(idx).long().to(device))
+		# dec_out,dec_hidden = self.model(**obs)
 
-		# dec_hidden,dec_out = self.decoder(t, enc_out)
+		enc_out = self.model.encoder(s, torch.tensor(idx).long().to(device))
 
-		dec_out,dec_hidden = self.model(**obs)
+		dec_out,dec_hidden = self.model.decoder(t, enc_out,None,True)
 
 		m = torch.nn.Softmax(dim=-1)
 

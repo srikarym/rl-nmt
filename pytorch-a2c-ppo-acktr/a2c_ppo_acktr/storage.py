@@ -13,7 +13,6 @@ class RolloutStorage(object):
 		self.obs_s = torch.ones(num_steps+1,num_processes,100)
 		self.obs_t = torch.ones(num_steps+1,num_processes,100)
 
-		self.new_words = np.ones((num_steps+1,num_processes),dtype = bool)
 		self.gt = torch.ones(num_steps+1,num_processes)
 
 
@@ -52,7 +51,7 @@ class RolloutStorage(object):
 		self.returns = self.returns.to(device)
 
 
-	def insert(self,obs, actions, action_log_probs, value_preds, rewards, masks,new_words,gt):
+	def insert(self,obs, actions, action_log_probs, value_preds, rewards, masks,gt):
 
 		self.obs_s[self.step + 1].copy_(obs[0])
 		self.obs_t[self.step+1].copy_(obs[1])
@@ -66,8 +65,6 @@ class RolloutStorage(object):
 
 		self.gt[self.step + 1].copy_(torch.tensor(gt))
 
-		self.new_words[self.step+1] = new_words
-
 		self.step = (self.step + 1) % (self.num_steps)
 
 
@@ -76,7 +73,6 @@ class RolloutStorage(object):
 		self.obs_t[0].copy_(self.obs_t[-1])
 		self.masks[0].copy_(self.masks[-1])
 		self.gt[0].copy_(self.gt[-1])
-		self.new_words[0] = self.new_words[-1]
 
 	def compute_returns(self, next_value, use_gae, gamma, tau):
 		if use_gae:
