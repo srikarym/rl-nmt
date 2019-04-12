@@ -42,6 +42,7 @@ class PPO():
 
 		num_updates = 0
 		criterion = nn.NLLLoss()
+		self.actor_critic.base.model.train()
 		for e in range(self.ppo_epoch):
 			data_generator = rollouts.feed_forward_generator(advantages, self.mini_batch_size)
 
