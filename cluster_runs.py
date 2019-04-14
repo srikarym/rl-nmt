@@ -6,7 +6,7 @@ import sys
 
 email = "msy290@nyu.edu"
 directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
-run = "week10_bleu_new"
+run = "week11"
 slurm_logs = os.path.join(directory, "slurm_logs",run)
 slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
@@ -40,7 +40,7 @@ def train(flags, jobname=None, time=24):
     slurmfile = os.path.join(slurm_scripts, jobnameattrs + '.slurm')
     with open(slurmfile, 'w') as f:
         f.write("#!/bin/bash\n")
-        f.write("#SBATCH --job-name" + "=" + str(j["num-sentences"])+"-"+str(j["seed"]) + "\n")
+        f.write("#SBATCH --job-name" + "=" +jobname + "\n")
         f.write("#SBATCH --output=%s\n" % os.path.join(slurm_logs, jobnameattrs + ".out"))
         f.write("#SBATCH --qos=batch\n")
         f.write("#SBATCH --mail-type=END,FAIL\n")
@@ -59,21 +59,23 @@ def train(flags, jobname=None, time=24):
 
 
 job = {
-        "env-name":"nmt_train-v0","n-epochs-per-word": 50, "n-epochs": 2000,
-        "num-processes": 100, "ppo-batch-size" :600, "log-dir": logdir, "save-dir": savedir,
+        "env-name":"nmt_train-v0","n-epochs-per-word": 10, "n-epochs": 2000,
+        "num-processes": 100, "ppo-batch-size" :450, "log-dir": logdir, "save-dir": savedir,
         "save-interval":1000,"num-steps": 100,"sen_per_epoch": 1,"use-wandb":"",
-	    "eval-interval":1,"entropy-coef":0.04,"use-gae":""
+	    "eval-interval":1,"entropy-coef":0.04,"use-gae":"","num-sentences":-1,"checkpoint":"",
+	    "file-path":"checkpoint_best.pt"
         }
 
 for seed in [1,2]:
-    for nsen in [3,10,100]:
-        j = {k:v for k,v in job.items()}
-        time = 48
-        j["seed"] = seed
-        old_save_dir = j["save-dir"]
-        j["num-sentences"]=nsen
-        run_name=run+"_seed_{}_sen_{}".format(seed,nsen)
-        j["save-dir"]=os.path.join(old_save_dir,run_name)
-        j["wandb-name"]=run
-        j["run-name"]= "seed_" + str(seed) +"_sen_"+str(nsen)
-        train(j, jobname=run_name, time=time)
+	for nepochs in [5,10,20]:
+	    j = {k:v for k,v in job.items()}
+	    time = 48
+	    j["seed"] = seed
+	    j["n-epochs-per-word"] = nepochs
+	    old_save_dir = j["save-dir"]
+	    j["run-name"]= "{}_seed_nepochs_{}".format(seed,nepochs)
+	    run_name=run+j["run-name"]
+	    j["save-dir"]=os.path.join(old_save_dir,run_name)
+	    j["wandb-name"]=run
+	    jobname = str(seed) + str(nepochs)
+	    train(j, jobname=jobname, time=time)

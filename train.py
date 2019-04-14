@@ -92,7 +92,6 @@ rollouts.obs_s[0].copy_(obs[0])
 rollouts.obs_t[0].copy_(obs[1])
 
 n_words = 1
-eval_reward_best = 0
 
 for epoch in range(args.n_epochs):
 	n_epochs_currentword += 1
@@ -170,44 +169,44 @@ for epoch in range(args.n_epochs):
 
 	print('bleuscore is',bleuscore)
 
-	#Evaluation (rewards with determininstic actions)
-	if (args.eval_interval is not None and epoch%args.eval_interval == 0):
+	# Evaluation (rewards with determininstic actions)
+	# if (args.eval_interval is not None and epoch%args.eval_interval == 0):
 
-		nenvs = args.num_sentences
-		eval_rewards = 0
-		for j in range(args.num_sentences//nenvs):
-			eval_envs = make_vec_envs(args.env_name,n_words,args.seed,train_data[j*nenvs:j*nenvs + nenvs],\
-				task,args.num_processes,train = False, num_sentences = nenvs,eval_env_name = 'nmt_eval-v0')
-
-
-			obs,info = eval_envs.reset()
-
-			log = logger(nenvs,task)
-
-			for i in range(n_words+1):
-
-				with torch.no_grad():
-					_,action,_,_ = actor_critic.act(obs, tac=None,deterministic=True)
-
-				obs_new, reward, done, info_new = eval_envs.step(action)
-
-				log.print_stuff(i,obs,action,reward,info)
-				log.append_rewards(done,reward)
-
-				obs = obs_new
-				info = info_new
+	# 	nenvs = args.num_sentences
+	# 	eval_rewards = 0
+	# 	for j in range(args.num_sentences//nenvs):
+	# 		eval_envs = make_vec_envs(args.env_name,n_words,args.seed,train_data[j*nenvs:j*nenvs + nenvs],\
+	# 			task,args.num_processes,train = False, num_sentences = nenvs,eval_env_name = 'nmt_eval-v0')
 
 
-			eval_rewards += log.get_reward()
+	# 		obs,info = eval_envs.reset()
 
-		eval_envs.close()
+	# 		log = logger(nenvs,task)
 
-		eval_rewards /= (args.num_sentences//nenvs)
+	# 		for i in range(n_words+1):
 
-		if eval_rewards >= eval_reward_best:
-			eval_reward_best = eval_rewards
-			checkpoint(epoch,"best")
+	# 			with torch.no_grad():
+	# 				_,action,_,_ = actor_critic.act(obs, tac=None,deterministic=True)
+
+	# 			obs_new, reward, done, info_new = eval_envs.step(action)
+
+	# 			log.print_stuff(i,obs,action,reward,info)
+	# 			log.append_rewards(done,reward)
+
+	# 			obs = obs_new
+	# 			info = info_new
+
+
+	# 		eval_rewards += log.get_reward()
+
+	# 	eval_envs.close()
+
+	# 	eval_rewards /= (args.num_sentences//nenvs)
+
+	# 	if eval_rewards >= eval_reward_best:
+	# 		eval_reward_best = eval_rewards
+	# 		checkpoint(epoch,"best")
 
 	if (args.use_wandb):
-		log.to_wandb(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
+		logger.log(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
 			ranks_epoch,total_loss_epoch,speed,bleuscore)
