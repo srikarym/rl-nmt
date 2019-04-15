@@ -231,15 +231,16 @@ class AttnBase(NNBase):
 				l = l[0].cpu().numpy()[0]
 			idx.append(l)
 
-		obs = {'src_tokens':s,
-					'src_lengths':torch.tensor(idx).long().to(device),
-					'prev_output_tokens':t}
+		# obs = {'src_tokens':s,
+		# 			'src_lengths':torch.tensor(idx).long().to(device),
+		# 			'prev_output_tokens':t}
 
-		# enc_out = self.encoder(s, torch.tensor(idx).long().to(device))
+		# dec_out,dec_hidden = self.model(**obs)
 
-		# dec_hidden,dec_out = self.decoder(t, enc_out)
+		enc_out = self.model.encoder(s, torch.tensor(idx).long().to(device))
 
-		dec_out,dec_hidden = self.model(**obs)
+		dec_out,dec_hidden = self.model.decoder(t, enc_out,None,True)
+
 
 		m = torch.nn.Softmax(dim=-1)
 

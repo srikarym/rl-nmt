@@ -106,7 +106,8 @@ def get_args():
 	parser.add_argument('--threshold',type=float,default=0.9,
 						help='Eval threshold for transition in missing words')
 
-
+	parser.add_argument('--n-words', type=int, default=1,
+						help='number of missing words (default: 1)')
 
 	args = parser.parse_args()
 	return args

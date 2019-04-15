@@ -76,9 +76,6 @@ if (args.checkpoint): #Load from checkpoint
 	actor_critic.base.model.upgrade_state_dict(state['model'])
 	actor_critic.base.model.load_state_dict(state['model'], strict=True)
 
-	# state = torch.load(args.file_path)
-	# actor_critic.load_state_dict(state['state_dict'])
-	# agent.optimizer.load_state_dict(state['optimizer'])
 
 n_epochs_currentword = 0
 
@@ -94,7 +91,7 @@ rollouts.obs_s[0].copy_(obs[0])
 rollouts.obs_t[0].copy_(obs[1])
 
 eval_reward_best = -100
-n_words = 1
+n_words = args.n_words
 eval_rewards = 0
 
 for epoch in range(args.n_epochs):
