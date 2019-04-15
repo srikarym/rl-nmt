@@ -84,9 +84,9 @@ rollouts = RolloutStorage(args.num_steps, args.num_processes,
 						  envs.observation_space.shape, envs.action_space,ratio,1)
 rollouts.to(device)
 print('Started training')
-obs, tac = envs.reset()
-idx = tac[:,1]
-tac = tac[:,0]
+obs, info = envs.reset()
+# idx = tac[:,1]
+tac = info[:,0]
 rollouts.obs_s[0].copy_(obs[0])
 rollouts.obs_t[0].copy_(obs[1])
 
@@ -111,7 +111,7 @@ for epoch in range(args.n_epochs):
 
 	if  n_epochs_currentword > args.n_epochs_per_word  :
 		n_epochs_currentword = 0
-		n_words+=1
+		n_words += args.nwwords_back 
 		print('Num of missing words is',n_words)
 		envs.close()
 		envs = make_vec_envs(args.env_name,n_words,args.seed,train_data[:args.num_sentences],task,args.num_processes)

@@ -89,7 +89,7 @@ class RolloutStorage(object):
 				self.returns[step] = self.returns[step + 1] * \
 									 gamma * self.masks[step + 1] + self.rewards[step]
 
-	def feed_forward_generator(self, advantages, mini_batch_size, ppo_mini_batchess):
+	def feed_forward_generator(self, advantages, mini_batch_size, ppo_mini_batches):
 
 
 		obs_s_flat = _flatten_helper(self.obs_s[:-1])

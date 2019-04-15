@@ -6,7 +6,7 @@ import sys
 
 email = "msy290@nyu.edu"
 directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
-run = "week12_break_ppo"
+run = "week12_multiple_words_back"
 slurm_logs = os.path.join(directory, "slurm_logs",run)
 slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
@@ -66,16 +66,16 @@ job = {
 	    "file-path":"checkpoint_best.pt","ppo-mini-batches":5
         }
 
-for seed in [1]:
+for nwwordsback in [2,3,5]:
 	for nepochs in [20,50,100]:
 	    j = {k:v for k,v in job.items()}
 	    time = 48
-	    j["seed"] = seed
+	    j["nwwords-back"] = nwwordsback
 	    j["n-epochs-per-word"] = nepochs
 	    old_save_dir = j["save-dir"]
-	    j["run-name"]= "{}_seed_nepochs_{}".format(seed,nepochs)
+	    j["run-name"]= "wordsback_{}_nepochs_{}".format(nwwordsback,nepochs)
 	    run_name=run+j["run-name"]
 	    j["save-dir"]=os.path.join(old_save_dir,run_name)
 	    j["wandb-name"]=run
-	    jobname = str(seed) + str(nepochs)
+	    jobname = str(nwwordsback) + str(nepochs)
 	    train(j, jobname=jobname, time=time)
