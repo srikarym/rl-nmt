@@ -65,10 +65,9 @@ actor_critic = Policy(envs.observation_space.shape, envs.action_space, 'Attn', b
 
 actor_critic.to(device)
 
-agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_size,
-				 args.value_loss_coef, args.entropy_coef, lr=args.lr,
-				 eps=args.eps,
-				 max_grad_norm=args.max_grad_norm)
+agent = algo.PPO(actor_critic, args.clip_param, args.ppo_epoch, args.ppo_batch_size, \
+				args.ppo_mini_batches, args.value_loss_coef, args.entropy_coef, lr=args.lr,eps=args.eps,\
+				max_grad_norm=args.max_grad_norm)
 
 if (args.checkpoint): #Load from checkpoint
 	state = torch.load(args.file_path)
@@ -98,6 +97,7 @@ for epoch in range(args.n_epochs):
 	value_loss_epoch = 0.0
 	action_loss_epoch = 0.0
 	dist_entropy_epoch = 0.0
+	nll_loss_epoch = 0.0
 	mean_reward_epoch = 0.0
 	total_loss_epoch = 0.0
 
@@ -147,7 +147,7 @@ for epoch in range(args.n_epochs):
 		# next_value = 0
 
 	rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
-	value_loss, action_loss, dist_entropy,total_loss = agent.update(rollouts)
+	value_loss, action_loss, dist_entropy, nll_loss, total_loss = agent.update(rollouts)
 	rollouts.after_update()
 	end = time.time()
 
@@ -156,6 +156,7 @@ for epoch in range(args.n_epochs):
 	value_loss_epoch += value_loss
 	action_loss_epoch += action_loss
 	dist_entropy_epoch += dist_entropy
+	nll_loss_epoch += nll_loss
 	total_loss_epoch += total_loss
 	mean_reward_epoch += np.mean(rewards)
 	ranks_epoch += np.mean(ranks_iter)
@@ -208,5 +209,5 @@ for epoch in range(args.n_epochs):
 	# 		checkpoint(epoch,"best")
 
 	if (args.use_wandb):
-		logger.log(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
+		logger.log(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch, nll_loss_epoch,mean_reward_epoch,\
 			ranks_epoch,total_loss_epoch,speed,bleuscore)

@@ -78,9 +78,6 @@ def get_args():
 	parser.add_argument('--checkpoint', action='store_true', default=False,
 						help='resume training from checkpoint')
 
-	parser.add_argument('--sen_per_epoch', type=int, default=0,
-						help='sentences per epoch, change this to collect more data when training with fewer sentences (default: 0) ')
-
 	parser.add_argument('--num-sentences',type=int,default=10,
 						help='Num of sentences to train, set this to -1 to use entire data')
 	

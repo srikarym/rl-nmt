@@ -89,7 +89,7 @@ class RolloutStorage(object):
 				self.returns[step] = self.returns[step + 1] * \
 									 gamma * self.masks[step + 1] + self.rewards[step]
 
-	def feed_forward_generator(self, advantages, mini_batch_size):
+	def feed_forward_generator(self, advantages, mini_batch_size, ppo_mini_batchess):
 
 
 		obs_s_flat = _flatten_helper(self.obs_s[:-1])
@@ -114,7 +114,7 @@ class RolloutStorage(object):
 			# print('total number of obs is',obs_s_flat.shape[0])
 			# print('indices are',indices)
 			count += 1
-			if count > 5:
+			if count > ppo_mini_batches:
 				break
 
 			obs_batch_s = obs_s_flat[indices]

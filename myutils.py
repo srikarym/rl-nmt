@@ -60,8 +60,8 @@ class logger():
 		   "Bleuscore":bleuscore},step = epoch)
 
 	@staticmethod
-	def log(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch,mean_reward_epoch,\
-		ranks_epoch,total_loss_epoch,speed,bleuscore):
+	def log(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch, nll_loss_epoch, \
+		mean_reward_epoch,ranks_epoch,total_loss_epoch,speed,bleuscore):
 		
 		wandb.log({"Loss/Value_loss ": value_loss_epoch ,
 		   "Loss/Action_loss": action_loss_epoch ,
@@ -69,6 +69,7 @@ class logger():
 		   "Rewards/Mean_reward": mean_reward_epoch ,
 		   "Misc/Mean_rank": ranks_epoch,
 		   "Loss/Total_loss": total_loss_epoch ,
+		   "Loss/NLL_loss": nll_loss_epoch ,
 		   "Misc/Missing_words":n_words,
 		   "Misc/Steps_per_sec":speed,
 		   "Bleuscore":bleuscore},step = epoch)

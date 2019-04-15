@@ -10,6 +10,7 @@ class PPO():
 				 clip_param,
 				 ppo_epoch,
 				 mini_batch_size,
+				 ppo_mini_batches,
 				 value_loss_coef,
 				 entropy_coef,
 				 lr=None,
@@ -29,6 +30,8 @@ class PPO():
 		self.max_grad_norm = max_grad_norm
 		self.use_clipped_value_loss = use_clipped_value_loss
 
+		self.ppo_mini_batches = ppo_mini_batches
+
 		self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
 	def update(self, rollouts):
@@ -41,12 +44,13 @@ class PPO():
 		value_loss_epoch = 0
 		action_loss_epoch = 0
 		dist_entropy_epoch = 0
+		nll_loss_epoch = 0
 		total_loss_epoch = 0
 
 		num_updates = 0
 		criterion = nn.NLLLoss()
 		for e in range(self.ppo_epoch):
-			data_generator = rollouts.feed_forward_generator(advantages, self.mini_batch_size)
+			data_generator = rollouts.feed_forward_generator(advantages, self.mini_batch_size, self.ppo_mini_batches)
 
 
 			for sample in data_generator:
@@ -95,6 +99,7 @@ class PPO():
 				action_loss_epoch += action_loss.item()
 				dist_entropy_epoch += dist_entropy.item()
 				total_loss_epoch += total_loss.item()
+				nll_loss_epoch += nll_loss.item()
 				num_updates+=1
 
 
@@ -103,8 +108,9 @@ class PPO():
 		value_loss_epoch /= num_updates
 		action_loss_epoch /= num_updates
 		dist_entropy_epoch /= num_updates
+		nll_loss_epoch /= num_updates
 		total_loss_epoch /= num_updates
 
 
 
-		return value_loss_epoch, action_loss_epoch,dist_entropy_epoch,total_loss_epoch
+		return value_loss_epoch, action_loss_epoch,dist_entropy_epoch,nll_loss,total_loss_epoch

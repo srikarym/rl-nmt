@@ -6,7 +6,7 @@ import sys
 
 email = "msy290@nyu.edu"
 directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
-run = "week11"
+run = "week12_break_ppo"
 slurm_logs = os.path.join(directory, "slurm_logs",run)
 slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
@@ -61,13 +61,13 @@ def train(flags, jobname=None, time=24):
 job = {
         "env-name":"nmt_train-v0","n-epochs-per-word": 10, "n-epochs": 2000,
         "num-processes": 100, "ppo-batch-size" :450, "log-dir": logdir, "save-dir": savedir,
-        "save-interval":1000,"num-steps": 100,"sen_per_epoch": 1,"use-wandb":"",
+        "save-interval":1000,"num-steps": 100,"use-wandb":"",
 	    "eval-interval":1,"entropy-coef":0.04,"use-gae":"","num-sentences":-1,"checkpoint":"",
-	    "file-path":"checkpoint_best.pt"
+	    "file-path":"checkpoint_best.pt","ppo-mini-batches":5
         }
 
-for seed in [1,2]:
-	for nepochs in [5,10,20]:
+for seed in [1]:
+	for nepochs in [20,50,100]:
 	    j = {k:v for k,v in job.items()}
 	    time = 48
 	    j["seed"] = seed
