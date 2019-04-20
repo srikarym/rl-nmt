@@ -56,9 +56,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 train_data,task = load_train_data()
 
-envs = make_vec_envs(args.env_name,1,args.seed,train_data[:args.num_sentences],task,args.num_processes)
+envs = make_vec_envs(args.env_name,args.n_words,args.seed,train_data[:args.num_sentences],task,args.num_processes)
 
-dummy = make_dummy(args.env_name,1,train_data,task)
+dummy = make_dummy(args.env_name,args.n_words,train_data,task)
 
 base_kwargs = {'recurrent': False, 'dummyenv': dummy, 'n_proc': args.num_processes}
 actor_critic = Policy(envs.observation_space.shape, envs.action_space, 'Attn', base_kwargs)
@@ -111,12 +111,11 @@ for epoch in range(args.n_epochs):
 	ranks_iter = []
 
 
-	if  n_epochs_currentword > epochs_per_word :
-		epochs_per_word = epochs_per_word + args.n_epochs_per_word
+	if  n_epochs_currentword > args.n_epochs_per_word :
 		n_epochs_currentword = 0
 		n_words += args.nwwords_back 
 		print('Num of missing words is',n_words)
-		envs.incwords()
+		envs.transition(args.nwwords_back)
 		# envs = make_vec_envs(args.env_name,n_words,args.seed,train_data[:args.num_sentences],task,args.num_processes)
 
 		# rollouts = RolloutStorage(args.num_steps,  args.num_processes,

@@ -71,8 +71,8 @@ class VecPyTorch(VecEnvWrapper):
             tac.append(ob[1])
         return self.pad(obs),np.array(tac)
 
-    def incwords(self):
-        self.venv.incwords()
+    def transition(self):
+        self.venv.transition()
 
 
     def step_async(self, actions):
@@ -109,8 +109,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             elif cmd == 'get_spaces':
                 remote.send((env.observation_space, env.action_space))
 
-            elif cmd == 'incwords':
-                env.incwords()
+            elif cmd == 'transition':
+                env.transition(words)
             else:
                 raise NotImplementedError
     except KeyboardInterrupt:
@@ -167,10 +167,10 @@ class SubprocVecEnv(VecEnv):
             remote.send(('reset', None))
         return _flatten_obs([remote.recv() for remote in self.remotes])
 
-    def incwords(self):
+    def transition(self):
         self._assert_not_closed()
         for remote in self.remotes:
-            remote.send(('incwords',None))
+            remote.send(('transition',None))
 
     def close_extras(self):
         self.closed = True

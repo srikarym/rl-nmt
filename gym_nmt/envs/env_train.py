@@ -56,8 +56,8 @@ class NMTEnv_train(gym.Env):
 
 		return np.array(ob), reward, is_over, (gt,new_word)
 
-	def incwords(self):
-		self.n_missing_words += 1
+	def transition(self,nwords):
+		self.n_missing_words += nwords
 
 	def get_gt(self): #Returns true action for calculating rank
 		if (self.steps_done>=len(self.missing_target)):
