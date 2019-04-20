@@ -6,7 +6,7 @@ import sys
 
 email = "msy290@nyu.edu"
 directory="/misc/kcgscratch1/ChoGroup/srikar/rl-nmt"
-run = "week12_multiple_words_back"
+run = "week12_"
 slurm_logs = os.path.join(directory, "slurm_logs",run)
 slurm_scripts = os.path.join(directory, "slurm_scripts",run)
 
@@ -59,23 +59,23 @@ def train(flags, jobname=None, time=24):
 
 
 job = {
-        "env-name":"nmt_train-v0","n-epochs-per-word": 10, "n-epochs": 2000,
+        "env-name":"nmt_train-v0","n-epochs-per-word": 50, "n-epochs": 2000,
         "num-processes": 100, "ppo-batch-size" :450, "log-dir": logdir, "save-dir": savedir,
-        "save-interval":1000,"num-steps": 100,"use-wandb":"",
+        "save-interval":200,"num-steps": 100,"use-wandb":"",
 	    "eval-interval":1,"entropy-coef":0.04,"use-gae":"","num-sentences":-1,"checkpoint":"",
 	    "file-path":"checkpoint_best.pt","ppo-mini-batches":5
         }
 
 for nwwordsback in [2,3,5]:
-	for nepochs in [20,50,100]:
+	for nwords in [1,5,10]:
 	    j = {k:v for k,v in job.items()}
 	    time = 48
 	    j["nwwords-back"] = nwwordsback
-	    j["n-epochs-per-word"] = nepochs
+	    j["n-words"] = nwords
 	    old_save_dir = j["save-dir"]
-	    j["run-name"]= "wordsback_{}_nepochs_{}".format(nwwordsback,nepochs)
+	    j["run-name"]= "wordsback_{}_words_{}".format(nwwordsback,nwords)
 	    run_name=run+j["run-name"]
 	    j["save-dir"]=os.path.join(old_save_dir,run_name)
 	    j["wandb-name"]=run
-	    jobname = str(nwwordsback) + str(nepochs)
+	    jobname = str(nwwordsback) +"."+ str(nwords)
 	    train(j, jobname=jobname, time=time)

@@ -15,6 +15,10 @@ def get_args():
 
 	parser.add_argument('--n-epochs', type=int, default=50,
 						help='Number of epochs')
+
+	parser.add_argument('--n-words', type=int, default=1,
+						help='Number of missing words when training starts')
+
 	parser.add_argument('--arch',type = str,default='LSTM',
 						help = 'LSTM | Transformer')
 

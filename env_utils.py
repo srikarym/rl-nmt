@@ -71,6 +71,9 @@ class VecPyTorch(VecEnvWrapper):
             tac.append(ob[1])
         return self.pad(obs),np.array(tac)
 
+    def incwords(self):
+        self.venv.incwords()
+
 
     def step_async(self, actions):
         actions = actions.squeeze(1).cpu().numpy()
@@ -105,6 +108,9 @@ def worker(remote, parent_remote, env_fn_wrapper):
                 break
             elif cmd == 'get_spaces':
                 remote.send((env.observation_space, env.action_space))
+
+            elif cmd == 'incwords':
+                env.incwords()
             else:
                 raise NotImplementedError
     except KeyboardInterrupt:
@@ -160,6 +166,11 @@ class SubprocVecEnv(VecEnv):
         for remote in self.remotes:
             remote.send(('reset', None))
         return _flatten_obs([remote.recv() for remote in self.remotes])
+
+    def incwords(self):
+        self._assert_not_closed()
+        for remote in self.remotes:
+            remote.send(('incwords',None))
 
     def close_extras(self):
         self.closed = True

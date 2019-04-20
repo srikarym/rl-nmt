@@ -26,14 +26,14 @@ class NMTEnv_train(gym.Env):
 		self.action = None
 		self.observation = np.ones((2, self.max_len))
 		self.missing_target = None
-		self.tac = None
+		self.gt = None
 
 	def init_words(self, n_missing_words,train_data,task):
 		self.task = task
 		self.train_data = train_data
-		self.n_missing_words_old = n_missing_words
 		self.n_vocab = len(task.target_dictionary)
 		self.action = spaces.Discrete(self.n_vocab)
+		self.n_missing_words = n_missing_words
 
 	def seed(self, seed=None): #Don't know how this works
 		self.np_random, seed = seeding.np_random(seed)
@@ -41,30 +41,32 @@ class NMTEnv_train(gym.Env):
 
 
 
-	def step(self, action):     #Returns [source, all the previously generated tokens], reward, episode_over, true actions
+	def step(self, action):     #Returns [source, all the previously generated tokens], reward, is_over, true actions
 
 		self.take_action(action)
 
 		reward = self.get_reward(action)
 
 		ob = [self.source,self.previous]
-		episode_over = self.is_done(action)
+		is_over = self.is_done(action)
 
-		tac = self.get_tac()
+		gt = self.get_gt()
 
 		new_word = False
 
-		return np.array(ob), reward, episode_over, (tac,new_word)
+		return np.array(ob), reward, is_over, (gt,new_word)
 
-	def get_tac(self): #Returns true action for calculating rank
+	def incwords(self):
+		self.n_missing_words += 1
+
+	def get_gt(self): #Returns true action for calculating rank
 		if (self.steps_done>=len(self.missing_target)):
-			tac = self.task.target_dictionary.pad()
+			gt = self.task.target_dictionary.pad()
 		else:
-			tac = self.missing_target[self.steps_done]
-		return tac
+			gt = self.missing_target[self.steps_done]
+		return gt
 
 	def is_done(self,action):     
-		# if action == self.task.target_dictionary.eos() or len(self.generation) == 2*self.n_missing_words+1:
 		if action == self.task.target_dictionary.eos() or len(self.generation) == self.n_missing_words+1:
 
 			return True
@@ -83,10 +85,9 @@ class NMTEnv_train(gym.Env):
 		self.index = training_pair['id']
 		self.previous = training_pair['net_input']['prev_output_tokens'].numpy().tolist()[0]
 
-		if self.n_missing_words_old > len(self.previous) - 1:
+		if self.n_missing_words > len(self.previous) - 1:
 			self.n_missing_words = len(self.previous) -1
-		else:
-			self.n_missing_words = self.n_missing_words_old
+
 		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-1:]) 
 
 		self.previous = self.previous[:-1*self.n_missing_words] 
@@ -100,7 +101,7 @@ class NMTEnv_train(gym.Env):
 
 	def take_action(self,action):
 		# print('action to take is',action)
-		self.previous.append(self.get_tac())
+		self.previous.append(self.get_gt())
 		self.generation.append(int(action))
 		self.steps_done = self.steps_done+1
 			
