@@ -28,7 +28,7 @@ class NMTEnv_train(gym.Env):
 		self.missing_target = None
 		self.gt = None
 
-	def init_words(self, n_missing_words,train_data,task):
+	def myinit(self, n_missing_words,train_data,task):
 		self.task = task
 		self.train_data = train_data
 		self.n_vocab = len(task.target_dictionary)

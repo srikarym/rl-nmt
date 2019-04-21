@@ -86,4 +86,7 @@ def load_train_data():
 
 	print('Data loaded')
 
+	if args.num_sentences != -1:
+		train_data = train_data[:args.num_sentences]
+
 	return train_data,task

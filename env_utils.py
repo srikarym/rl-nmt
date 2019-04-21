@@ -14,14 +14,14 @@ import itertools
 def make_env(env_id, n_missing_words,seed,train_data,task):
     def _thunk():
         env = gym.make(env_id)
-        env.init_words(n_missing_words,train_data,task)
-        env.seed()
+        env.myinit(n_missing_words,train_data,task)
+        env.seed(seed)
 
         return env
 
     return _thunk
 
-def make_vec_envs(env_name,n_missing_words,seed,train_data,task,num_processes,train = True,num_sentences = 0,eval_env_name = 'nmt_eval-v0'):
+def make_vec_envs(env_name,n_missing_words,seed,train_data,task,num_processes,train = True,num_sentences = -1,eval_env_name = 'nmt_eval-v0'):
 
     if train:
         envs = [make_env(env_name, n_missing_words ,seed+i,train_data,task)
@@ -38,7 +38,7 @@ def make_vec_envs(env_name,n_missing_words,seed,train_data,task,num_processes,tr
 def make_dummy(env_name,n_missing_words,train_data,task):
 
     dummy = gym.make(env_name)
-    dummy.init_words(n_missing_words,train_data,task)
+    dummy.myinit(n_missing_words,train_data,task)
     return dummy
 
 class VecPyTorch(VecEnvWrapper):
@@ -71,8 +71,8 @@ class VecPyTorch(VecEnvWrapper):
             tac.append(ob[1])
         return self.pad(obs),np.array(tac)
 
-    def transition(self):
-        self.venv.transition()
+    def transition(self,words):
+        self.venv.transition(words)
 
 
     def step_async(self, actions):
@@ -110,7 +110,7 @@ def worker(remote, parent_remote, env_fn_wrapper):
                 remote.send((env.observation_space, env.action_space))
 
             elif cmd == 'transition':
-                env.transition(words)
+                env.transition(data)
             else:
                 raise NotImplementedError
     except KeyboardInterrupt:
@@ -167,10 +167,10 @@ class SubprocVecEnv(VecEnv):
             remote.send(('reset', None))
         return _flatten_obs([remote.recv() for remote in self.remotes])
 
-    def transition(self):
+    def transition(self,words):
         self._assert_not_closed()
         for remote in self.remotes:
-            remote.send(('transition',None))
+            remote.send(('transition',words))
 
     def close_extras(self):
         self.closed = True

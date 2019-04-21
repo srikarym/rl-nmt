@@ -56,7 +56,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 train_data,task = load_train_data()
 
-envs = make_vec_envs(args.env_name,args.n_words,args.seed,train_data[:args.num_sentences],task,args.num_processes)
+envs = make_vec_envs(args.env_name,args.n_words,args.seed,train_data,task,args.num_processes)
 
 dummy = make_dummy(args.env_name,args.n_words,train_data,task)
 
