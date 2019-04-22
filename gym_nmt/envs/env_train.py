@@ -110,15 +110,21 @@ class NMTEnv_train(gym.Env):
 		
 		reward = 0
 
-		if (self.steps_done <= self.n_missing_words + 1):
-			if int(action) == self.missing_target[self.steps_done-1]:
+		# if (self.steps_done <= self.n_missing_words + 1):
+		# 	if int(action) == self.missing_target[self.steps_done-1]:
 
-				reward = self.max_reward + 1/(self.n_missing_words + 1)
-				self.max_reward = reward
+		# 		reward = self.max_reward + 1/(self.n_missing_words + 1)
+		# 		self.max_reward = reward
 
-			else:
-				reward = self.max_reward
+		# 	else:
+		# 		reward = self.max_reward
 
+		if self.is_done(action):
+
+			ref = self.task.target_dictionary.string(torch.tensor(self.missing_target))
+			hyp = self.task.target_dictionary.string(torch.tensor(self.generation))
+
+			reward = sentence_bleu(hyp,ref)
 
 		return reward
 
