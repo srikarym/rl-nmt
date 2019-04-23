@@ -10,7 +10,7 @@ from fairseq.utils import import_user_module
 from fairseq.utils import _upgrade_state_dict
 from fairseq import bleu, options, progress_bar, tasks, utils
 from fairseq.meters import StopwatchMeter, TimeMeter
-from misc import args
+from misc import args, SacrebleuScorer
 from copy import deepcopy
 
 class AttrDict(dict):
@@ -40,12 +40,6 @@ task = tasks.setup_task(task_args)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-class Flatten(nn.Module):
-	def forward(self, x):
-		return x.view(x.size(0), -1)
-
-
-from sacrebleu import sentence_bleu
 
 class Policy(nn.Module):
 	def __init__(self, obs_shape, action_space, base=None, base_kwargs=None):
@@ -141,7 +135,7 @@ class Policy(nn.Module):
 			num_workers=args.num_workers,
 		).next_epoch_itr(shuffle=False)
 
-		scorer = bleu.Scorer(self.tgt_dict.pad(), self.tgt_dict.eos(), self.tgt_dict.unk())
+		scorer = SacrebleuScorer()
 		use_cuda = torch.cuda.is_available() and not args.cpu
 		has_target = True
 
@@ -204,7 +198,7 @@ class Policy(nn.Module):
 								scorer.add(target_tokens, hypo_tokens)
 
 
-		return scorer.score(4)
+		return scorer.corpus_bleu(), scorer.sentence_bleu()
 
 	def get_dec_sm(self,inputs):
 		action = self.base(inputs,None,False,True)

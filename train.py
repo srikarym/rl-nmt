@@ -168,10 +168,10 @@ for epoch in range(args.n_epochs):
 
 	#Calculate bleu score
 	with torch.no_grad():
-		bleuscore = actor_critic.bleuscore()
+		corpus_bleu, sentence_bleu = actor_critic.bleuscore()
 
 	print('bleuscore is',bleuscore)
 
 	if (args.use_wandb):
 		logger.log(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch, nll_loss_epoch,mean_reward_epoch,\
-			ranks_epoch,total_loss_epoch,speed,bleuscore)
+			ranks_epoch,total_loss_epoch,speed,corpus_bleu, sentence_bleu)

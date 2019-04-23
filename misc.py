@@ -59,3 +59,33 @@ class args:
     unnormalized=False
     upsample_primary=1
     user_dir=None
+
+class SacrebleuScorer(object):
+    def __init__(self):
+        import sacrebleu
+        self.sacrebleu = sacrebleu
+        self.reset()
+
+    def reset(self, one_init=False):
+        if one_init:
+            raise NotImplementedError
+        self.ref = []
+        self.sys = []
+
+    def add_string(self, ref, pred):
+        self.ref.append(ref)
+        self.sys.append(pred)
+
+    def corpus_bleu(self, order=4):
+        return self.result_string(order).score
+
+    def result_string(self, order=4):
+        if order != 4:
+            raise NotImplementedError
+        return self.sacrebleu.corpus_bleu(self.sys, [self.ref])
+    
+    def sentence_bleu(self):
+        senbleu = 0
+        for hyp,ref in zip(self.sys,self.ref):
+            senbleu += sacrebleu.sentence_bleu(hyp,ref)
+        return senbleu/len(self.sys)
