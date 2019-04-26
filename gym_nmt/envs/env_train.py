@@ -33,7 +33,7 @@ class NMTEnv_train(gym.Env):
 		self.train_data = train_data
 		self.n_vocab = len(task.target_dictionary)
 		self.action = spaces.Discrete(self.n_vocab)
-		self.n_missing_words = n_missing_words
+		self.n_missing_words_old = n_missing_words
 
 	def seed(self, seed=None): #Don't know how this works
 		self.np_random, seed = seeding.np_random(seed)
@@ -57,7 +57,7 @@ class NMTEnv_train(gym.Env):
 		return np.array(ob), reward, is_over, (gt,new_word)
 
 	def transition(self,nwords):
-		self.n_missing_words += nwords
+		self.n_missing_words_old += nwords
 
 	def get_gt(self): #Returns true action for calculating rank
 		if (self.steps_done>=len(self.missing_target)):
@@ -74,7 +74,7 @@ class NMTEnv_train(gym.Env):
 
 	def reset(self):
 
-		
+		self.n_missing_words = self.n_missing_words_old
 		training_pair = random.sample(self.train_data,1)[0]
 
 		self.source = training_pair['net_input']['src_tokens'].numpy().tolist()[0]
@@ -87,10 +87,10 @@ class NMTEnv_train(gym.Env):
 
 		if self.n_missing_words > len(self.previous) - 1:
 			self.n_missing_words = len(self.previous) -1
+			self.previous = [self.previous[0]] 
+
 
 		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-1:]) 
-
-		self.previous = self.previous[:-1*self.n_missing_words] 
 
 		new_word = True
 		return np.array([self.source,self.previous]),(self.missing_target[0],new_word)  
