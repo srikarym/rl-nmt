@@ -124,7 +124,7 @@ class NMTEnv_train(gym.Env):
 			ref = self.task.target_dictionary.string(torch.tensor(self.missing_target))
 			hyp = self.task.target_dictionary.string(torch.tensor(self.generation))
 
-			reward = sentence_bleu(hyp,ref)
+			reward = sentence_bleu(hyp,ref)/100
 
 		return reward
 
