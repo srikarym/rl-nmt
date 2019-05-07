@@ -110,6 +110,12 @@ for epoch in range(args.n_epochs):
 	rewards = []
 	ranks_iter = []
 
+	use_nll = False
+
+	# if n_epochs_currentword > args.n_epochs_per_word//2 :
+	# 	use_nll = False
+	# else:
+	# 	use_nll = True
 
 	if  n_epochs_currentword > args.n_epochs_per_word :
 		n_epochs_currentword = 0
@@ -134,7 +140,7 @@ for epoch in range(args.n_epochs):
 		# print(ranks)
 		ranks_iter.append(np.mean(ranks))
 
-		obs, reward, done, info = envs.step(action)
+		obs, reward, done, info = envs.step(action,use_nll)
 
 		tac = info[:,0]
 
@@ -149,7 +155,7 @@ for epoch in range(args.n_epochs):
 		# next_value = 0
 
 	rollouts.compute_returns(next_value, args.use_gae, args.gamma, args.tau)
-	value_loss, action_loss, dist_entropy, nll_loss, total_loss = agent.update(rollouts)
+	value_loss, action_loss, dist_entropy, nll_loss, total_loss = agent.update(rollouts,use_nll)
 	rollouts.after_update()
 	end = time.time()
 
@@ -170,7 +176,6 @@ for epoch in range(args.n_epochs):
 	with torch.no_grad():
 		corpus_bleu, sentence_bleu = actor_critic.bleuscore()
 
-	print('bleuscore is',bleuscore)
 
 	if (args.use_wandb):
 		logger.log(epoch,n_words,value_loss_epoch,action_loss_epoch,dist_entropy_epoch, nll_loss_epoch,mean_reward_epoch,\

@@ -34,7 +34,7 @@ class PPO():
 
 		self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
-	def update(self, rollouts):
+	def update(self, rollouts,usenll = False):
 
 		self.actor_critic.base.train()
 
@@ -83,12 +83,14 @@ class PPO():
 				# total_loss = (action_loss - dist_entropy * self.entropy_coef + value_loss*self.value_loss_coef)
 				rl_loss = (action_loss - dist_entropy * self.entropy_coef + value_loss*self.value_loss_coef)
 
-				action = self.actor_critic.get_dec_sm(obs_batch)
-				# print(action.shape,gt.shape)
-				nll_loss = criterion(action,gt.squeeze().cuda().long())
+				if usenll:
 
-				total_loss = 0.5*(rl_loss + nll_loss)
+					action = self.actor_critic.get_dec_sm(obs_batch)
+					nll_loss = criterion(action,gt.squeeze().cuda().long())
 
+					total_loss = 0.5*(rl_loss + nll_loss)
+				else:
+					total_loss = rl_loss
 
 				total_loss.backward()
 
@@ -99,7 +101,10 @@ class PPO():
 				action_loss_epoch += action_loss.item()
 				dist_entropy_epoch += dist_entropy.item()
 				total_loss_epoch += total_loss.item()
-				nll_loss_epoch += nll_loss.item()
+
+				if usenll:
+					nll_loss_epoch += nll_loss.item()
+				nll_loss_epoch = 0
 				num_updates+=1
 
 
@@ -113,4 +118,4 @@ class PPO():
 
 
 
-		return value_loss_epoch, action_loss_epoch,dist_entropy_epoch,nll_loss,total_loss_epoch
+		return value_loss_epoch, action_loss_epoch,dist_entropy_epoch,nll_loss_epoch,total_loss_epoch

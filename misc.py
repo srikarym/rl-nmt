@@ -87,5 +87,5 @@ class SacrebleuScorer(object):
     def sentence_bleu(self):
         senbleu = 0
         for hyp,ref in zip(self.sys,self.ref):
-            senbleu += sacrebleu.sentence_bleu(hyp,ref)
+            senbleu += self.sacrebleu.sentence_bleu(hyp,ref)
         return senbleu/len(self.sys)

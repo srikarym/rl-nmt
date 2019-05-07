@@ -75,9 +75,9 @@ class VecPyTorch(VecEnvWrapper):
         self.venv.transition(words)
 
 
-    def step_async(self, actions):
+    def step_async(self, actions,use_nll):
         actions = actions.squeeze(1).cpu().numpy()
-        self.venv.step_async(actions)
+        self.venv.step_async(actions,use_nll)
 
     def step_wait(self):
         obs, reward, done, tac = self.venv.step_wait()
@@ -148,10 +148,10 @@ class SubprocVecEnv(VecEnv):
         self.specs = [f().spec for f in env_fns]
         VecEnv.__init__(self, len(env_fns), observation_space, action_space)
 
-    def step_async(self, actions):
+    def step_async(self, actions,use_nlls):
         self._assert_not_closed()
-        for remote, action in zip(self.remotes, actions):
-            remote.send(('step', action))
+        for remote, action,use_nll in zip(self.remotes, actions,use_nlls):
+            remote.send(('step', action,use_nll))
         self.waiting = True
 
     def step_wait(self):

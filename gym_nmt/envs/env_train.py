@@ -43,7 +43,9 @@ class NMTEnv_train(gym.Env):
 
 	def step(self, action):     #Returns [source, all the previously generated tokens], reward, is_over, true actions
 
-		self.take_action(action)
+		action,tf = action
+		# action = action.squeeze(1).cpu().numpy()
+		self.take_action(action,tf)
 
 		reward = self.get_reward(action)
 
@@ -87,8 +89,9 @@ class NMTEnv_train(gym.Env):
 
 		if self.n_missing_words > len(self.previous) - 1:
 			self.n_missing_words = len(self.previous) -1
-			self.previous = [self.previous[0]] 
+			# self.previous = [self.previous[0]] 
 
+		self.previous = self.previous[:-1*self.n_missing_words]
 
 		self.missing_target = deepcopy(self.target[-1*self.n_missing_words-1:]) 
 
@@ -99,9 +102,11 @@ class NMTEnv_train(gym.Env):
 	def _render(self, mode='human', close=False):
 		pass
 
-	def take_action(self,action):
-		# print('action to take is',action)
-		self.previous.append(self.get_gt())
+	def take_action(self,action,tf):
+		if tf:
+			self.previous.append(self.get_gt())
+		else:
+			self.previous.append(int(action))
 		self.generation.append(int(action))
 		self.steps_done = self.steps_done+1
 			
@@ -119,12 +124,23 @@ class NMTEnv_train(gym.Env):
 		# 	else:
 		# 		reward = self.max_reward
 
-		if self.is_done(action):
+		ref = self.task.target_dictionary.string(torch.tensor(self.missing_target))
+		hyp_incl = self.task.target_dictionary.string(torch.tensor(self.generation))
 
-			ref = self.task.target_dictionary.string(torch.tensor(self.missing_target))
-			hyp = self.task.target_dictionary.string(torch.tensor(self.generation))
+		if len(self.generation) != 1:
+			hyp_excl = self.task.target_dictionary.string(torch.tensor(self.generation[:-1]))
 
-			reward = sentence_bleu(hyp,ref)/100
+		reward_incl = sentence_bleu(hyp_incl,ref)
+		reward_excl = sentence_bleu(hyp_excl,ref) if len(self.generation) != 1 else 0
+
+		reward = (reward_incl - reward_excl)/100
+
+		# if self.is_done(action):
+
+		# 	ref = self.task.target_dictionary.string(torch.tensor(self.missing_target))
+		# 	hyp = self.task.target_dictionary.string(torch.tensor(self.generation))
+
+		# 	reward = sentence_bleu(hyp,ref)/100
 
 		return reward
 
